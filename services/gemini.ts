@@ -38,99 +38,124 @@ You are playing a sentence-building game with a child "Xixi".
 `;
 
 export const fetchGameStep = async (currentWords: WordOption[], storyHistory: string[] = []): Promise<GameState> => {
-  try {
-    const historyText = storyHistory.length > 0 
-      ? `Story so far: "${storyHistory.join(' ')}".` 
-      : "Start a brand new story.";
-      
-    const currentSentenceText = currentWords.map(w => w.word).join(" ");
-    const isStartOfSentence = currentWords.length === 0;
+  // We allow errors to bubble up so the UI can show a "Retry" state
+  const historyText = storyHistory.length > 0 
+    ? `Story so far: "${storyHistory.join(' ')}".` 
+    : "Start a brand new story.";
+    
+  const currentSentenceText = currentWords.map(w => w.word).join(" ");
+  const isStartOfSentence = currentWords.length === 0;
 
-    const prompt = `
-      Context: ${historyText}
-      Current incomplete sentence: "${currentSentenceText}"
-      Is Start of Sentence: ${isStartOfSentence}
-      
-      Tasks:
-      1. Determine the Scene (where are we?).
-      2. If 'Is Start of Sentence' is true, generate a 'suggestedAddedWord' (e.g., "The", "A", "Once") to begin.
-      3. Generate 2 'nextOptions' for the NEXT word.
-      4. If sentence is long (>5 words) and grammatically complete (ends in noun), set isComplete=true.
-    `;
+  const prompt = `
+    Context: ${historyText}
+    Current incomplete sentence: "${currentSentenceText}"
+    Is Start of Sentence: ${isStartOfSentence}
+    
+    Tasks:
+    1. Determine the Scene (where are we?).
+    2. If 'Is Start of Sentence' is true, generate a 'suggestedAddedWord' (e.g., "The", "A", "Once") to begin.
+    3. Generate 2 'nextOptions' for the NEXT word.
+    4. If sentence is long (>5 words) and grammatically complete (ends in noun), set isComplete=true.
+  `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        temperature: 1.0,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            aiComment: { type: Type.STRING },
-            scene: {
-              type: Type.OBJECT,
-              properties: {
-                type: { type: Type.STRING, enum: ['forest', 'ocean', 'space', 'city', 'home', 'magic', 'default'] },
-                backgroundEmoji: { type: Type.STRING },
-                colorTheme: { type: Type.STRING }
-              }
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: prompt,
+    config: {
+      systemInstruction: SYSTEM_INSTRUCTION,
+      temperature: 1.0,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          aiComment: { type: Type.STRING },
+          scene: {
+            type: Type.OBJECT,
+            properties: {
+              type: { type: Type.STRING, enum: ['forest', 'ocean', 'space', 'city', 'home', 'magic', 'default'] },
+              backgroundEmoji: { type: Type.STRING },
+              colorTheme: { type: Type.STRING }
+            }
+          },
+          suggestedAddedWord: {
+            type: Type.OBJECT,
+            properties: {
+              word: { type: Type.STRING },
+              emoji: { type: Type.STRING },
+              zh: { type: Type.STRING },
             },
-            suggestedAddedWord: {
+            nullable: true
+          },
+          nextOptions: {
+            type: Type.ARRAY,
+            items: {
               type: Type.OBJECT,
               properties: {
                 word: { type: Type.STRING },
                 emoji: { type: Type.STRING },
                 zh: { type: Type.STRING },
               },
-              nullable: true
-            },
-            nextOptions: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  word: { type: Type.STRING },
-                  emoji: { type: Type.STRING },
-                  zh: { type: Type.STRING },
-                },
-                required: ["word", "emoji", "zh"]
-              }
-            },
-            isComplete: { type: Type.BOOLEAN },
-            englishTranslation: { type: Type.STRING }
+              required: ["word", "emoji", "zh"]
+            }
           },
-          required: ["aiComment", "nextOptions", "isComplete", "scene"]
-        }
+          isComplete: { type: Type.BOOLEAN },
+          englishTranslation: { type: Type.STRING }
+        },
+        required: ["aiComment", "nextOptions", "isComplete", "scene"]
       }
+    }
+  });
+
+  const text = response.text;
+  if (!text) throw new Error("No response from AI");
+  
+  const data = JSON.parse(text);
+
+  return {
+    storyHistory: storyHistory,
+    currentSentence: currentWords,
+    aiComment: data.aiComment,
+    nextOptions: data.nextOptions || [],
+    isComplete: data.isComplete,
+    englishTranslation: data.englishTranslation,
+    scene: data.scene,
+    suggestedAddedWord: data.suggestedAddedWord
+  };
+};
+
+export const generateStoryImage = async (sentence: string, sceneType: string): Promise<string | null> => {
+  try {
+    const prompt = `
+      Create a cute, colorful, flat vector art style illustration for a children's storybook.
+      
+      Scene Setting: ${sceneType}
+      Action/Subject: ${sentence}
+      
+      Style parameters:
+      - Bright, happy colors
+      - Simple shapes, easy to understand for a 4-year-old
+      - White or soft pastel background
+      - No text inside the image
+      - Aspect Ratio 1:1
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: prompt,
     });
 
-    const text = response.text;
-    if (!text) throw new Error("No response");
+    // Iterate through parts to find the image
+    if (response.candidates?.[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData && part.inlineData.data) {
+          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        }
+      }
+    }
     
-    const data = JSON.parse(text);
-
-    return {
-      storyHistory: storyHistory,
-      currentSentence: currentWords,
-      aiComment: data.aiComment,
-      nextOptions: data.nextOptions || [],
-      isComplete: data.isComplete,
-      englishTranslation: data.englishTranslation,
-      scene: data.scene,
-      suggestedAddedWord: data.suggestedAddedWord
-    };
-
+    return null;
   } catch (error) {
-    console.error("API Error:", error);
-    return {
-      storyHistory: storyHistory,
-      currentSentence: currentWords,
-      aiComment: "Oops, let's try again!",
-      nextOptions: [],
-      isComplete: false,
-      scene: { type: 'default', backgroundEmoji: '🦕', colorTheme: '' }
-    };
+    console.error("Image generation failed:", error);
+    return null; // Fail silently for image, game can continue without it
   }
 };

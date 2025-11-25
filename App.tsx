@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { GameState, WordOption, SceneType } from './types';
-import { fetchGameStep } from './services/gemini';
+import { fetchGameStep, generateStoryImage } from './services/gemini';
 import { OptionCard } from './components/OptionCard';
 import { Button } from './components/Button';
-import { Volume2, PlayCircle, Sparkles, BookOpen, Star, Music, ArrowRight } from 'lucide-react';
+import { Volume2, PlayCircle, Sparkles, BookOpen, Star, Music, ArrowRight, RefreshCw, AlertCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 
 // Theme configurations for different scenes
@@ -39,6 +39,13 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [started, setStarted] = useState(false);
   const [autoAdvanceTimer, setAutoAdvanceTimer] = useState<number | null>(null);
+  
+  // Image Generation State
+  const [storyImage, setStoryImage] = useState<string | null>(null);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+
+  // Error State
+  const [hasError, setHasError] = useState(false);
 
   const themeClass = SCENE_THEMES[gameState.scene?.type] || SCENE_THEMES.default;
   const floatingEmoji = SCENE_ELEMENTS[gameState.scene?.type] || SCENE_ELEMENTS.default;
@@ -59,30 +66,37 @@ const App: React.FC = () => {
 
   const processGameStep = async (sentence: WordOption[], history: string[]) => {
     setLoading(true);
-    const nextState = await fetchGameStep(sentence, history);
-    
-    // Handle AI Auto-Start Word (The AI plays first!)
-    if (nextState.suggestedAddedWord) {
-      const autoWord = nextState.suggestedAddedWord;
-      // Optimistically add it to the state
-      const updatedSentence = [...sentence, autoWord];
+    setHasError(false); // Reset error
+    try {
+      const nextState = await fetchGameStep(sentence, history);
       
-      // Update state with the word added, AND the options for the word AFTER that
-      setGameState({
-        ...nextState,
-        currentSentence: updatedSentence,
-        suggestedAddedWord: undefined // Consume it
-      });
-      speak(autoWord.word, "en-US");
-    } else {
-      setGameState(nextState);
-    }
-    
-    setLoading(false);
-    
-    // Don't speak comment immediately if it's the start, wait a tiny bit
-    if (!nextState.isComplete) {
-       setTimeout(() => speak(nextState.aiComment, "zh-CN"), 800);
+      // Handle AI Auto-Start Word (The AI plays first!)
+      if (nextState.suggestedAddedWord) {
+        const autoWord = nextState.suggestedAddedWord;
+        // Optimistically add it to the state
+        const updatedSentence = [...sentence, autoWord];
+        
+        // Update state with the word added, AND the options for the word AFTER that
+        setGameState({
+          ...nextState,
+          currentSentence: updatedSentence,
+          suggestedAddedWord: undefined // Consume it
+        });
+        speak(autoWord.word, "en-US");
+      } else {
+        setGameState(nextState);
+      }
+      
+      // Don't speak comment immediately if it's the start, wait a tiny bit
+      if (!nextState.isComplete) {
+         setTimeout(() => speak(nextState.aiComment, "zh-CN"), 800);
+      }
+
+    } catch (error) {
+      console.error("Game processing error:", error);
+      setHasError(true);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -90,8 +104,12 @@ const App: React.FC = () => {
     setLoading(true);
     setStarted(true);
     speak("吼吼！故事开始啦！", "zh-CN");
-    // Start with empty sentence, AI will trigger suggestedAddedWord
     await processGameStep([], []);
+  };
+
+  const retryLastAction = async () => {
+    // Retry logic depends on context, but simplest is to re-send current state
+    await processGameStep(gameState.currentSentence, gameState.storyHistory);
   };
 
   const handleOptionClick = async (option: WordOption) => {
@@ -118,32 +136,44 @@ const App: React.FC = () => {
       currentSentence: [],
       isComplete: false,
       aiComment: "Thinking...",
-      nextOptions: []
+      nextOptions: [],
     }));
+    setStoryImage(null); // Clear image
 
     // Start next sentence (AI will provide first word again)
     await processGameStep([], newHistory);
   };
 
-  // Auto Advance Logic
+  // Completion & Image Generation Effect
   useEffect(() => {
-    if (gameState.isComplete && !loading) {
+    if (gameState.isComplete) {
       const text = gameState.currentSentence.map(w => w.word).join(' ');
       speak(text, "en-US");
       
-      let timeLeft = 3500;
-      const startTime = Date.now();
-      const interval = setInterval(() => {
-         const elapsed = Date.now() - startTime;
-         const remaining = Math.max(0, 3500 - elapsed);
-         setAutoAdvanceTimer(remaining);
-         if (remaining <= 0) {
-           clearInterval(interval);
-           setAutoAdvanceTimer(null);
-           continueStory();
-         }
-      }, 50);
-      return () => clearInterval(interval);
+      const generateAndAdvance = async () => {
+        setIsGeneratingImage(true);
+        // Attempt to generate image
+        const img = await generateStoryImage(text, gameState.scene.type);
+        setStoryImage(img);
+        setIsGeneratingImage(false);
+
+        // Start Auto Advance Timer AFTER image is ready (or failed)
+        let timeLeft = 6000; // Give 6 seconds to look at image
+        const startTime = Date.now();
+        const interval = setInterval(() => {
+           const elapsed = Date.now() - startTime;
+           const remaining = Math.max(0, 6000 - elapsed);
+           setAutoAdvanceTimer(remaining);
+           if (remaining <= 0) {
+             clearInterval(interval);
+             setAutoAdvanceTimer(null);
+             continueStory();
+           }
+        }, 50);
+        return () => clearInterval(interval);
+      };
+
+      generateAndAdvance();
     }
   }, [gameState.isComplete]);
 
@@ -156,7 +186,6 @@ const App: React.FC = () => {
   if (!started) {
     return (
       <div className="min-h-screen bg-sky-50 flex items-center justify-center p-8 relative overflow-hidden">
-        {/* Background blobs */}
         <div className="blob bg-green-300 w-96 h-96 rounded-full top-0 left-0 mix-blend-multiply blur-3xl opacity-50"></div>
         <div className="blob bg-purple-300 w-96 h-96 rounded-full bottom-0 right-0 mix-blend-multiply blur-3xl opacity-50"></div>
 
@@ -181,6 +210,22 @@ const App: React.FC = () => {
   return (
     <div className={clsx("min-h-screen flex flex-col transition-colors duration-1000", themeClass)}>
        
+       {/* Error Overlay */}
+       {hasError && (
+         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-[2rem] p-8 max-w-md w-full text-center shadow-2xl animate-pop-in border-4 border-red-100">
+               <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-4xl">🤕</span>
+               </div>
+               <h3 className="text-2xl font-black text-slate-800 mb-2">Oops! Dino tripped!</h3>
+               <p className="text-slate-500 mb-6 text-lg">We couldn't reach the magic cloud.</p>
+               <Button onClick={retryLastAction} className="w-full bg-red-400 hover:bg-red-500 py-4 text-xl">
+                 <RefreshCw className="w-5 h-5 mr-2" /> Try Again
+               </Button>
+            </div>
+         </div>
+       )}
+
        {/* Animated Background Elements */}
        <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -201,7 +246,7 @@ const App: React.FC = () => {
 
       <div className="w-full max-w-5xl mx-auto flex flex-col h-screen p-4 md:p-6 lg:p-8 relative z-10">
         
-        {/* TOP BAR: Scene Badge & History Toggle */}
+        {/* TOP BAR */}
         <div className="flex justify-between items-center mb-4 md:mb-6">
            <div className="bg-white/60 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 shadow-sm border border-white/50">
               <span className="text-xl">{gameState.scene?.backgroundEmoji}</span>
@@ -224,7 +269,7 @@ const App: React.FC = () => {
              <div className="w-20 h-20 md:w-28 md:h-28 rounded-full bg-green-100 flex items-center justify-center text-5xl md:text-6xl shadow-inner border-4 border-white">
                🦖
              </div>
-             {loading && (
+             {(loading || isGeneratingImage) && (
                <div className="absolute -top-2 -right-2 bg-yellow-400 p-2 rounded-full shadow-sm animate-bounce">
                  <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-yellow-900" />
                </div>
@@ -232,11 +277,10 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex-1">
-             {/* Speech Bubble Arrow */}
              <div className="bg-slate-100 rounded-3xl p-4 md:p-6 relative rounded-tl-none">
                 <div className="absolute top-0 -left-3 w-6 h-6 bg-slate-100 clip-path-polygon"></div>
                 <p className="text-slate-800 font-bold text-lg md:text-2xl leading-relaxed">
-                   {gameState.aiComment}
+                   {isGeneratingImage ? "Painting a picture for you! 🎨" : gameState.aiComment}
                 </p>
                 <button 
                   onClick={() => speak(gameState.aiComment, "zh-CN")}
@@ -248,12 +292,10 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* MAIN SENTENCE DISPLAY (Grow to fill available space) */}
+        {/* MAIN SENTENCE DISPLAY */}
         <div className="flex-1 bg-white/80 backdrop-blur-md rounded-[2.5rem] border-4 border-white shadow-xl p-6 md:p-10 mb-6 flex flex-col items-center justify-center relative overflow-hidden">
           
           <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6">
-             {/* Previous History (Faded) - Optional, just showing current sentence mainly */}
-             
              {gameState.currentSentence.map((word, idx) => (
                <div key={idx} className="flex flex-col items-center animate-pop-in">
                   <span className="text-4xl md:text-6xl lg:text-7xl font-black text-slate-800 drop-shadow-sm tracking-tight mb-1 md:mb-2">{word.word}</span>
@@ -278,26 +320,42 @@ const App: React.FC = () => {
         <div className="min-h-[160px] md:min-h-[240px] flex items-end">
            {gameState.isComplete ? (
               // COMPLETION CARD
-              <div className="w-full bg-orange-100/90 backdrop-blur rounded-[2rem] p-6 md:p-8 flex flex-col items-center justify-center text-center animate-fade-in border-4 border-white shadow-lg">
-                 <div className="flex items-center gap-3 text-orange-600 mb-2 md:mb-4">
-                    <Star className="w-8 h-8 fill-orange-500" />
-                    <h2 className="text-2xl md:text-4xl font-black uppercase">Great Job!</h2>
-                    <Star className="w-8 h-8 fill-orange-500" />
-                 </div>
-                 <p className="text-slate-600 text-lg md:text-2xl font-medium mb-6 max-w-2xl">
-                    "{gameState.englishTranslation}"
-                 </p>
+              <div className="w-full bg-orange-100/90 backdrop-blur rounded-[2rem] p-4 md:p-6 flex flex-col items-center justify-center text-center animate-fade-in border-4 border-white shadow-lg relative overflow-hidden">
                  
-                 {/* Progress Bar for Auto Advance */}
-                 <div className="w-full max-w-md h-3 md:h-4 bg-white rounded-full overflow-hidden shadow-inner">
-                    <div 
-                       className="h-full bg-orange-500 transition-all duration-100 ease-linear rounded-full"
-                       style={{ width: `${((3500 - (autoAdvanceTimer || 3500)) / 3500) * 100}%` }}
-                    />
-                 </div>
-                 <p className="mt-3 text-orange-400 font-bold text-sm md:text-base flex items-center gap-2">
-                    Next page coming <ArrowRight className="w-4 h-4 animate-pulse"/>
-                 </p>
+                 {isGeneratingImage ? (
+                    <div className="flex flex-col items-center justify-center py-8">
+                       <span className="text-6xl mb-4 animate-bounce">🖌️</span>
+                       <p className="text-orange-500 font-bold text-xl animate-pulse">Creating masterpiece...</p>
+                    </div>
+                 ) : (
+                    <div className="w-full h-full flex flex-col md:flex-row items-center gap-6">
+                        {storyImage && (
+                          <div className="w-48 h-48 md:w-64 md:h-64 rounded-2xl overflow-hidden shadow-lg shrink-0 border-4 border-white rotate-[-2deg] bg-white">
+                             <img src={storyImage} alt="Story illustration" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left">
+                            <div className="flex items-center gap-2 text-orange-600 mb-2">
+                                <Star className="w-6 h-6 fill-orange-500" />
+                                <h2 className="text-2xl font-black uppercase">Great Job!</h2>
+                            </div>
+                            <p className="text-slate-700 text-lg md:text-2xl font-bold mb-2">
+                                "{gameState.englishTranslation}"
+                            </p>
+                             {/* Progress Bar for Auto Advance */}
+                             <div className="w-full max-w-xs h-3 bg-white/50 rounded-full overflow-hidden shadow-inner mt-4">
+                                <div 
+                                className="h-full bg-orange-500 transition-all duration-100 ease-linear rounded-full"
+                                style={{ width: `${((6000 - (autoAdvanceTimer || 6000)) / 6000) * 100}%` }}
+                                />
+                            </div>
+                            <p className="mt-2 text-orange-400 font-bold text-sm flex items-center gap-2">
+                                Next page <ArrowRight className="w-4 h-4 animate-pulse"/>
+                            </p>
+                        </div>
+                    </div>
+                 )}
+                 
               </div>
            ) : (
               // OPTIONS GRID
