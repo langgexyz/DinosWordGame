@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { WordOption } from '../types';
 import { clsx } from 'clsx';
+import { SpeakerButton } from './SpeakerButton';
 
 interface OptionCardProps {
   option: WordOption;
@@ -18,24 +19,48 @@ const colors = [
 
 export const OptionCard: React.FC<OptionCardProps> = ({ option, onClick, disabled }) => {
   const colorClass = colors[option.word.length % colors.length];
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  const handleSpeak = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card selection
+    
+    if (isPlaying) {
+      window.speechSynthesis.cancel();
+      setIsPlaying(false);
+      return;
+    }
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(option.word);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.9;
+      utterance.onend = () => setIsPlaying(false);
+      setIsPlaying(true);
+      window.speechSynthesis.speak(utterance);
+    }
+  };
 
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
+    <div
+      onClick={!disabled ? onClick : undefined}
       className={clsx(
-        "relative flex flex-col items-center justify-center p-4 md:p-8 rounded-[2rem] border-b-8 transition-all duration-200 w-full h-full",
+        "relative flex flex-col items-center justify-center p-4 md:p-8 rounded-[2rem] border-b-8 transition-all duration-200 w-full h-full group select-none",
         colorClass,
         disabled ? "opacity-50 cursor-not-allowed" : "hover:scale-[1.02] hover:-translate-y-1 active:translate-y-1 active:border-b-0 active:shadow-inner cursor-pointer shadow-sm"
       )}
+      role="button"
+      tabIndex={disabled ? -1 : 0}
     >
-      <div className="flex flex-col items-center gap-2 md:gap-4">
+      <div className="flex flex-col items-center gap-2 md:gap-4 pointer-events-none">
         <span className="text-5xl md:text-7xl lg:text-8xl filter drop-shadow-md transition-transform duration-300 group-hover:rotate-12">{option.emoji}</span>
         <div className="text-center">
             <span className="block text-2xl md:text-4xl lg:text-5xl font-black capitalize tracking-tight mb-1">{option.word}</span>
             <span className="block text-lg md:text-2xl font-bold opacity-70">{option.zh}</span>
         </div>
       </div>
-    </button>
+
+      <SpeakerButton onClick={handleSpeak} isPlaying={isPlaying} />
+    </div>
   );
 };

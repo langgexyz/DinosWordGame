@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { GameState, WordOption, SceneType } from './types';
 import { fetchGameStep, generateStoryImage } from './services/gemini';
 import { OptionCard } from './components/OptionCard';
 import { Button } from './components/Button';
+import { SpeakerButton } from './components/SpeakerButton';
 import { Volume2, PlayCircle, Sparkles, BookOpen, Star, Music, ArrowRight, RefreshCw, AlertCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -47,6 +48,10 @@ const App: React.FC = () => {
   // Error State
   const [hasError, setHasError] = useState(false);
 
+  // Audio State
+  const [isPlayingFullSentence, setIsPlayingFullSentence] = useState(false);
+  const [isDinoSpeaking, setIsDinoSpeaking] = useState(false);
+
   const themeClass = SCENE_THEMES[gameState.scene?.type] || SCENE_THEMES.default;
   const floatingEmoji = SCENE_ELEMENTS[gameState.scene?.type] || SCENE_ELEMENTS.default;
 
@@ -60,6 +65,15 @@ const App: React.FC = () => {
       const voices = window.speechSynthesis.getVoices();
       const preferredVoice = voices.find(v => v.lang.includes(lang));
       if (preferredVoice) utterance.voice = preferredVoice;
+      
+      if (lang === 'zh-CN') setIsDinoSpeaking(true);
+      if (lang === 'en-US' && text.length > 20) setIsPlayingFullSentence(true); // Rough heuristic
+
+      utterance.onend = () => {
+        setIsDinoSpeaking(false);
+        setIsPlayingFullSentence(false);
+      };
+      
       window.speechSynthesis.speak(utterance);
     }
   };
@@ -124,6 +138,16 @@ const App: React.FC = () => {
     }));
 
     await processGameStep(newSentence, gameState.storyHistory);
+  };
+
+  const handlePlayFullSentence = () => {
+    if (isPlayingFullSentence) {
+      window.speechSynthesis.cancel();
+      setIsPlayingFullSentence(false);
+    } else {
+      const text = gameState.currentSentence.map(w => w.word).join(' ');
+      speak(text, "en-US");
+    }
   };
 
   const continueStory = async () => {
@@ -277,17 +301,15 @@ const App: React.FC = () => {
           </div>
           
           <div className="flex-1">
-             <div className="bg-slate-100 rounded-3xl p-4 md:p-6 relative rounded-tl-none">
+             <div className="bg-slate-100 rounded-3xl p-4 md:p-6 relative rounded-tl-none pr-12 md:pr-16">
                 <div className="absolute top-0 -left-3 w-6 h-6 bg-slate-100 clip-path-polygon"></div>
                 <p className="text-slate-800 font-bold text-lg md:text-2xl leading-relaxed">
                    {isGeneratingImage ? "Painting a picture for you! 🎨" : gameState.aiComment}
                 </p>
-                <button 
-                  onClick={() => speak(gameState.aiComment, "zh-CN")}
-                  className="absolute bottom-2 right-2 md:bottom-4 md:right-4 text-slate-400 hover:text-green-500 p-2"
-                >
-                  <Volume2 className="w-6 h-6 md:w-7 md:h-7" />
-                </button>
+                <SpeakerButton 
+                  onClick={() => speak(gameState.aiComment, "zh-CN")} 
+                  isPlaying={isDinoSpeaking}
+                />
              </div>
           </div>
         </div>
@@ -295,22 +317,34 @@ const App: React.FC = () => {
         {/* MAIN SENTENCE DISPLAY */}
         <div className="flex-1 bg-white/80 backdrop-blur-md rounded-[2.5rem] border-4 border-white shadow-xl p-6 md:p-10 mb-6 flex flex-col items-center justify-center relative overflow-hidden">
           
-          <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6">
+          <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6 pb-12">
              {gameState.currentSentence.map((word, idx) => (
-               <div key={idx} className="flex flex-col items-center animate-pop-in">
+               <div key={idx} className="flex flex-col items-center animate-fly-in">
                   <span className="text-4xl md:text-6xl lg:text-7xl font-black text-slate-800 drop-shadow-sm tracking-tight mb-1 md:mb-2">{word.word}</span>
                   <span className="text-2xl md:text-4xl filter drop-shadow-md transform transition-transform hover:scale-125">{word.emoji}</span>
                </div>
              ))}
 
-             {/* Cursor / Typing Indicator */}
+             {/* Cursor / Placeholder */}
              {!gameState.isComplete && (
-               <div className="w-1 md:w-2 h-10 md:h-16 bg-slate-300 animate-pulse rounded-full mx-2"></div>
+               <div className="flex flex-col items-center justify-end h-full ml-2">
+                 <div className="w-20 md:w-32 h-16 md:h-20 border-b-4 border-dashed border-slate-300 rounded-lg flex items-center justify-center opacity-50">
+                    {/* Placeholder visual */}
+                 </div>
+               </div>
              )}
           </div>
           
+          {/* Main Sentence Speaker Button - Bottom Right */}
+          {gameState.currentSentence.length > 0 && (
+             <SpeakerButton 
+               onClick={handlePlayFullSentence} 
+               isPlaying={isPlayingFullSentence}
+             />
+          )}
+
           {gameState.currentSentence.length === 0 && !loading && (
-             <div className="text-slate-300 font-bold text-2xl md:text-4xl animate-pulse">
+             <div className="text-slate-300 font-bold text-2xl md:text-4xl animate-pulse absolute inset-0 flex items-center justify-center">
                 Building story...
              </div>
           )}
