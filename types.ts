@@ -1,3 +1,4 @@
+
 export interface WordOption {
   word: string;
   emoji: string;
@@ -13,15 +14,20 @@ export interface Scene {
   colorTheme: string; // Tailwind class prefix e.g. "from-green-400 to-blue-500"
 }
 
+export interface StoryPage {
+  text: string;
+  image: string | null;
+  translation?: string;
+}
+
 export interface GameState {
-  storyHistory: string[];
+  history: StoryPage[];
   currentSentence: WordOption[];
   aiComment: string;
   nextOptions: WordOption[];
   isComplete: boolean;
   englishTranslation?: string;
   scene: Scene;
-  suggestedAddedWord?: WordOption; // For the AI to auto-add the first word
 }
 
 export interface ApiError {

@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
-import { GameState, WordOption, SceneType } from "../types";
+import { GameState, WordOption, SceneType, StoryPage } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -9,17 +10,20 @@ You are playing a sentence-building game with a child.
 
 **Persona:**
 - **Tone:** Excited, playful, encouraging! Use emojis.
-- **Address User:** Address the child as "你" (You) or "Little Friend" (小朋友). Never use specific names like "Xixi".
-- **Role:** You start the sentence, then help the child pick the next word.
+- **Address User:** Address the child as "你" (You). Never use specific names.
+- **Role:** Help the child build a sentence word by word.
 - **Language:** Simple Chinese explanations. IMPORTANT: When asking the child to choose, you MUST use the English words in your Chinese sentence so they can hear them.
   - Example: "Do you want a **red** apple or a **green** apple?" -> "你想要 'red' 红色的苹果，还是 'green' 绿色的苹果呢？"
 
 **Game Rules:**
 1. **Continuous Story:** We write a never-ending adventure together.
 2. **Scenes:** Detect the current setting (Forest, Ocean, Space, etc.) based on the words.
-3. **Start of Story:** If currentWords is empty, YOU MUST provide a 'suggestedAddedWord' to begin (e.g., "The", "Once", "A").
+3. **Start of Story:** If currentWords is empty, provide 2 options to start the sentence (e.g., "The" vs "One", or "A" vs "My"). Do NOT auto-fill the first word.
 4. **Options:** Always provide exactly 2 options for the next word.
-5. **Completion:** STRICT grammar check. Only complete when 6+ words AND ends on a noun/complete thought. Never end on articles, adjectives, or prepositions.
+5. **Punctuation:** 
+   - If a word naturally needs a comma after it (e.g., introductory words like "Suddenly", "However", "Then"), include the comma in the 'word' field (e.g., "Suddenly,").
+   - Do NOT include periods in the middle of a sentence.
+6. **Completion:** STRICT grammar check. Only complete when 6+ words AND ends on a noun/complete thought. Never end on articles, adjectives, or prepositions (like 'and', 'with', 'the', 'a').
 
 **JSON Response Format:**
 {
@@ -29,24 +33,19 @@ You are playing a sentence-building game with a child.
     "backgroundEmoji": "string (1 emoji)",
     "colorTheme": "string (css hex)"
   },
-  "suggestedAddedWord": { 
-    "word": "string", 
-    "emoji": "string (1 emoji)", 
-    "zh": "string (simple Chinese translation)" 
-  } (ONLY when currentWords is empty),
   "nextOptions": [
     { "word": "string", "emoji": "string (1 emoji)", "zh": "string" },
     { "word": "string", "emoji": "string (1 emoji)", "zh": "string" }
   ],
   "isComplete": boolean,
-  "englishTranslation": "string (full sentence translation)"
+  "englishTranslation": "string (full sentence translation with proper punctuation)"
 }
 `;
 
-export const fetchGameStep = async (currentWords: WordOption[], storyHistory: string[] = []): Promise<GameState> => {
+export const fetchGameStep = async (currentWords: WordOption[], history: StoryPage[] = []): Promise<GameState> => {
   // We allow errors to bubble up so the UI can show a "Retry" state
-  const historyText = storyHistory.length > 0 
-    ? `Story so far: "${storyHistory.join(' ')}".` 
+  const historyText = history.length > 0 
+    ? `Story so far: "${history.map(h => h.text).join(' ')}".` 
     : "Start a brand new story.";
     
   const currentSentenceText = currentWords.map(w => w.word).join(" ");
@@ -59,9 +58,10 @@ export const fetchGameStep = async (currentWords: WordOption[], storyHistory: st
     
     Tasks:
     1. Determine the Scene (where are we?).
-    2. If 'Is Start of Sentence' is true, generate a 'suggestedAddedWord' (e.g., "The", "A", "Once") to begin.
+    2. If 'Is Start of Sentence' is true, generate 2 'nextOptions' suitable for starting a sentence (e.g. "The", "A", "Once").
     3. Generate 2 'nextOptions' for the NEXT word.
     4. If sentence is long (>5 words) and grammatically complete (ends in noun), set isComplete=true.
+    5. CRITICAL: Do NOT set isComplete=true if the sentence ends with a connector or preposition (and, or, with, a, the).
   `;
 
   const response = await ai.models.generateContent({
@@ -82,15 +82,6 @@ export const fetchGameStep = async (currentWords: WordOption[], storyHistory: st
               backgroundEmoji: { type: Type.STRING },
               colorTheme: { type: Type.STRING }
             }
-          },
-          suggestedAddedWord: {
-            type: Type.OBJECT,
-            properties: {
-              word: { type: Type.STRING },
-              emoji: { type: Type.STRING },
-              zh: { type: Type.STRING },
-            },
-            nullable: true
           },
           nextOptions: {
             type: Type.ARRAY,
@@ -117,15 +108,23 @@ export const fetchGameStep = async (currentWords: WordOption[], storyHistory: st
   
   const data = JSON.parse(text);
 
+  // Fallback guard: Ensure isComplete is false if specific last words are used, regardless of what AI says
+  const lastWord = currentWords.length > 0 ? currentWords[currentWords.length - 1].word.toLowerCase() : "";
+  const forbiddenEndings = ['and', 'or', 'but', 'with', 'the', 'a', 'an', 'my', 'his', 'her', 'their', 'of', 'to', 'in', 'on', 'at'];
+  
+  let finalIsComplete = data.isComplete;
+  if (forbiddenEndings.includes(lastWord)) {
+      finalIsComplete = false;
+  }
+  
   return {
-    storyHistory: storyHistory,
+    history: history,
     currentSentence: currentWords,
     aiComment: data.aiComment,
     nextOptions: data.nextOptions || [],
-    isComplete: data.isComplete,
+    isComplete: finalIsComplete,
     englishTranslation: data.englishTranslation,
-    scene: data.scene,
-    suggestedAddedWord: data.suggestedAddedWord
+    scene: data.scene
   };
 };
 

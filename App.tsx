@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { GameState, WordOption, SceneType } from './types';
+import { GameState, WordOption, SceneType, StoryPage } from './types';
 import { fetchGameStep, generateStoryImage } from './services/gemini';
 import { OptionCard } from './components/OptionCard';
 import { Button } from './components/Button';
 import { SpeakerButton } from './components/SpeakerButton';
-import { Volume2, PlayCircle, Sparkles, BookOpen, Star, Music, ArrowRight, RefreshCw, AlertCircle } from 'lucide-react';
+import { Volume2, PlayCircle, Sparkles, BookOpen, Star, Music, ArrowRight, RefreshCw, AlertCircle, X, ZoomIn } from 'lucide-react';
 import { clsx } from 'clsx';
 
 // Theme configurations for different scenes
@@ -28,9 +29,20 @@ const SCENE_ELEMENTS: Record<string, string> = {
   default: "🎈"
 };
 
+// Helper to format sentence with proper punctuation spacing
+const formatSentence = (words: WordOption[], addPeriod = false) => {
+  const rawString = words.map(w => w.word).join(' ');
+  // Remove space before punctuation
+  let formatted = rawString.replace(/\s+([,.;?!])/g, '$1');
+  if (addPeriod && !/[.?!]$/.test(formatted)) {
+    formatted += ".";
+  }
+  return formatted;
+};
+
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>({
-    storyHistory: [],
+    history: [],
     currentSentence: [],
     aiComment: "Rawr! Let's play!",
     nextOptions: [],
@@ -53,9 +65,26 @@ const App: React.FC = () => {
   
   // Voice Sync Animation State
   const [highlightedWord, setHighlightedWord] = useState<string | null>(null);
+  
+  // UI States for History and Zoom
+  const [showHistory, setShowHistory] = useState(false);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+
+  // Scroll Ref
+  const sentenceContainerRef = useRef<HTMLDivElement>(null);
 
   const themeClass = SCENE_THEMES[gameState.scene?.type] || SCENE_THEMES.default;
   const floatingEmoji = SCENE_ELEMENTS[gameState.scene?.type] || SCENE_ELEMENTS.default;
+
+  // Auto-scroll when sentence updates
+  useEffect(() => {
+    if (sentenceContainerRef.current) {
+      sentenceContainerRef.current.scrollTo({
+        top: sentenceContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, [gameState.currentSentence, gameState.nextOptions]);
 
   const speak = (text: string, lang: 'en-US' | 'zh-CN' = 'zh-CN') => {
     if ('speechSynthesis' in window) {
@@ -74,21 +103,17 @@ const App: React.FC = () => {
       // Voice Boundary Event for Highlighting
       utterance.onboundary = (event) => {
         if (event.name === 'word') {
-          // Extract the word starting at this char index
-          // We look ahead until we hit a space or punctuation
           const textFromIndex = utterance.text.slice(event.charIndex);
           const match = textFromIndex.match(/^[\w']+/);
           
           if (match) {
             const currentSpokenWord = match[0].toLowerCase();
-            // Check if this spoken word matches one of our options
             const matchedOption = gameState.nextOptions.find(
               opt => opt.word.toLowerCase() === currentSpokenWord
             );
             
             if (matchedOption) {
               setHighlightedWord(matchedOption.word.toLowerCase());
-              // Clear highlight after a short delay or it stays until next word
               setTimeout(() => setHighlightedWord(null), 1500);
             }
           }
@@ -105,28 +130,12 @@ const App: React.FC = () => {
     }
   };
 
-  const processGameStep = async (sentence: WordOption[], history: string[]) => {
+  const processGameStep = async (sentence: WordOption[], history: StoryPage[]) => {
     setLoading(true);
     setHasError(false); // Reset error
     try {
       const nextState = await fetchGameStep(sentence, history);
-      
-      // Handle AI Auto-Start Word (The AI plays first!)
-      if (nextState.suggestedAddedWord) {
-        const autoWord = nextState.suggestedAddedWord;
-        // Optimistically add it to the state
-        const updatedSentence = [...sentence, autoWord];
-        
-        // Update state with the word added, AND the options for the word AFTER that
-        setGameState({
-          ...nextState,
-          currentSentence: updatedSentence,
-          suggestedAddedWord: undefined // Consume it
-        });
-        speak(autoWord.word, "en-US");
-      } else {
-        setGameState(nextState);
-      }
+      setGameState(nextState);
       
       // Don't speak comment immediately if it's the start, wait a tiny bit
       if (!nextState.isComplete) {
@@ -149,12 +158,14 @@ const App: React.FC = () => {
   };
 
   const retryLastAction = async () => {
-    // Retry logic depends on context, but simplest is to re-send current state
-    await processGameStep(gameState.currentSentence, gameState.storyHistory);
+    await processGameStep(gameState.currentSentence, gameState.history);
   };
 
   const handleOptionClick = async (option: WordOption) => {
-    speak(option.word, "en-US");
+    // Clean punctuation from spoken word (speak "Suddenly" not "Suddenly,")
+    const cleanWord = option.word.replace(/[,.!?;:]/g, '');
+    speak(cleanWord, "en-US");
+    
     const newSentence = [...gameState.currentSentence, option];
     
     // Optimistic UI update
@@ -164,7 +175,7 @@ const App: React.FC = () => {
       nextOptions: [], // Clear options while loading
     }));
 
-    await processGameStep(newSentence, gameState.storyHistory);
+    await processGameStep(newSentence, gameState.history);
   };
 
   const handlePlayFullSentence = () => {
@@ -172,18 +183,26 @@ const App: React.FC = () => {
       window.speechSynthesis.cancel();
       setIsPlayingFullSentence(false);
     } else {
-      const text = gameState.currentSentence.map(w => w.word).join(' ');
+      const text = formatSentence(gameState.currentSentence, false);
       speak(text, "en-US");
     }
   };
 
   const continueStory = async () => {
-    const completedSentenceStr = gameState.currentSentence.map(w => w.word).join(' ') + ".";
-    const newHistory = [...gameState.storyHistory, completedSentenceStr];
+    const completedSentenceStr = formatSentence(gameState.currentSentence, true);
+    
+    // Create new page entry with image if available
+    const newPage: StoryPage = {
+      text: completedSentenceStr,
+      image: storyImage,
+      translation: gameState.englishTranslation
+    };
+
+    const newHistory = [...gameState.history, newPage];
 
     setGameState(prev => ({
       ...prev,
-      storyHistory: newHistory,
+      history: newHistory,
       currentSentence: [],
       isComplete: false,
       aiComment: "Thinking...",
@@ -191,32 +210,29 @@ const App: React.FC = () => {
     }));
     setStoryImage(null); // Clear image
 
-    // Start next sentence (AI will provide first word again)
+    // Start next sentence
     await processGameStep([], newHistory);
   };
 
   // Completion & Image Generation Effect
   useEffect(() => {
     if (gameState.isComplete) {
-      const text = gameState.currentSentence.map(w => w.word).join(' ');
+      const text = formatSentence(gameState.currentSentence, true);
       speak(text, "en-US");
       
       const generateAndAdvance = async () => {
         setIsGeneratingImage(true);
-        // Attempt to generate image
         const img = await generateStoryImage(text, gameState.scene.type);
         setStoryImage(img);
         setIsGeneratingImage(false);
-        // Removed Auto-Advance Timer here to let user decide when to continue
       };
 
       generateAndAdvance();
     }
   }, [gameState.isComplete]);
 
-  const playWholeStory = () => {
-    const history = gameState.storyHistory.join(' ');
-    speak(history, "en-US");
+  const readPage = (text: string) => {
+    speak(text, "en-US");
   };
 
   // --- START SCREEN ---
@@ -263,6 +279,68 @@ const App: React.FC = () => {
          </div>
        )}
 
+       {/* Zoom Modal */}
+       {zoomedImage && (
+         <div 
+           className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out animate-fade-in"
+           onClick={() => setZoomedImage(null)}
+         >
+           <img 
+              src={zoomedImage} 
+              alt="Zoomed illustration" 
+              className="max-w-full max-h-full rounded-2xl shadow-2xl animate-pop-in" 
+           />
+           <button className="absolute top-6 right-6 text-white bg-white/20 hover:bg-white/40 rounded-full p-2">
+             <X className="w-8 h-8" />
+           </button>
+         </div>
+       )}
+
+       {/* History Modal */}
+       {showHistory && (
+         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-6">
+           <div className="bg-white w-full max-w-2xl h-[90vh] sm:h-[80vh] rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl flex flex-col overflow-hidden animate-slide-up sm:animate-pop-in">
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white z-10">
+                 <h2 className="text-2xl font-black text-slate-800 flex items-center gap-2">
+                    <BookOpen className="w-8 h-8 text-orange-400" />
+                    Story Book
+                 </h2>
+                 <button onClick={() => setShowHistory(false)} className="p-2 hover:bg-slate-100 rounded-full">
+                    <X className="w-6 h-6 text-slate-400" />
+                 </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                 {gameState.history.length === 0 ? (
+                    <div className="text-center text-slate-400 py-12">
+                       <BookOpen className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                       <p className="text-xl">Your story hasn't started yet!</p>
+                    </div>
+                 ) : (
+                    gameState.history.map((page, idx) => (
+                      <div key={idx} className="flex gap-4 items-start border-b border-slate-100 last:border-0 pb-6 last:pb-0">
+                         <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-500 flex items-center justify-center font-bold shrink-0">
+                           {idx + 1}
+                         </div>
+                         <div className="flex-1">
+                            {page.image && (
+                               <img src={page.image} alt={`Page ${idx + 1}`} className="w-full max-w-xs rounded-xl mb-4 border-4 border-slate-50 shadow-sm" />
+                            )}
+                            <p className="text-xl font-bold text-slate-800 mb-2 leading-relaxed">{page.text}</p>
+                            {page.translation && (
+                               <p className="text-slate-500 text-base mb-3">{page.translation}</p>
+                            )}
+                            <button onClick={() => readPage(page.text)} className="flex items-center gap-2 text-sky-500 font-bold text-sm hover:underline">
+                               <Volume2 className="w-4 h-4" /> Read Page
+                            </button>
+                         </div>
+                      </div>
+                    ))
+                 )}
+              </div>
+           </div>
+         </div>
+       )}
+
        {/* Animated Background Elements */}
        <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -284,7 +362,7 @@ const App: React.FC = () => {
       <div className="w-full max-w-5xl mx-auto flex flex-col h-screen p-3 sm:p-4 md:p-6 lg:p-8 relative z-10">
         
         {/* TOP BAR */}
-        <div className="flex justify-between items-center mb-3 md:mb-6">
+        <div className="flex justify-between items-center mb-3 md:mb-6 shrink-0">
            <div className="bg-white/60 backdrop-blur-md px-3 py-1.5 md:px-4 md:py-2 rounded-full flex items-center gap-2 shadow-sm border border-white/50">
               <span className="text-lg md:text-xl">{gameState.scene?.backgroundEmoji}</span>
               <span className="font-bold text-slate-600 uppercase tracking-wider text-xs md:text-base">
@@ -292,16 +370,17 @@ const App: React.FC = () => {
               </span>
            </div>
            
-           {gameState.storyHistory.length > 0 && (
-              <button onClick={playWholeStory} className="bg-white/80 hover:bg-white px-3 py-1.5 md:px-4 md:py-2 rounded-full font-bold text-sky-600 shadow-sm flex items-center gap-2 transition-colors text-sm md:text-base">
-                <BookOpen className="w-4 h-4 md:w-5 md:h-5" />
-                <span className="hidden sm:inline">Read Story</span>
-              </button>
-           )}
+           <button 
+             onClick={() => setShowHistory(true)} 
+             className="bg-white/80 hover:bg-white px-3 py-1.5 md:px-4 md:py-2 rounded-full font-bold text-orange-500 shadow-sm flex items-center gap-2 transition-colors text-sm md:text-base"
+           >
+              <BookOpen className="w-4 h-4 md:w-5 md:h-5" />
+              <span className="hidden sm:inline">Story History</span>
+           </button>
         </div>
 
         {/* DINO COMPANION AREA */}
-        <div className="bg-white/90 backdrop-blur-xl p-3 md:p-6 rounded-[2rem] md:rounded-[2.5rem] shadow-lg mb-4 md:mb-6 flex items-center gap-3 md:gap-6 border-2 border-white">
+        <div className="bg-white/90 backdrop-blur-xl p-3 md:p-6 rounded-[2rem] md:rounded-[2.5rem] shadow-lg mb-4 md:mb-6 flex items-center gap-3 md:gap-6 border-2 border-white shrink-0">
           <div className="relative shrink-0">
              <div className="w-16 h-16 md:w-28 md:h-28 rounded-full bg-green-100 flex items-center justify-center text-4xl md:text-6xl shadow-inner border-4 border-white">
                🦖
@@ -327,10 +406,13 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* MAIN SENTENCE DISPLAY */}
-        <div className="flex-1 bg-white/80 backdrop-blur-md rounded-[2rem] md:rounded-[2.5rem] border-4 border-white shadow-xl p-4 md:p-10 mb-4 md:mb-6 flex flex-col items-center justify-center relative overflow-hidden">
+        {/* MAIN SENTENCE DISPLAY - SCROLLABLE */}
+        <div 
+          ref={sentenceContainerRef}
+          className="flex-1 bg-white/80 backdrop-blur-md rounded-[2rem] md:rounded-[2.5rem] border-4 border-white shadow-xl p-4 md:p-10 mb-4 md:mb-6 flex flex-col relative overflow-y-auto min-h-[160px]"
+        >
           
-          <div className="flex flex-wrap items-end justify-center gap-2 md:gap-4 lg:gap-6 pb-12">
+          <div className="flex flex-wrap items-end justify-center gap-2 md:gap-4 lg:gap-6 pb-12 w-full min-h-full content-center">
              {gameState.currentSentence.map((word, idx) => (
                <div key={idx} className="flex flex-col items-center animate-fly-in">
                   <span className="text-xl sm:text-2xl md:text-4xl filter drop-shadow-md transform transition-transform hover:scale-125 mb-1">{word.emoji}</span>
@@ -341,28 +423,31 @@ const App: React.FC = () => {
              {/* Cursor / Placeholder */}
              {!gameState.isComplete && (
                <div className="flex flex-col items-center justify-end h-full ml-1 md:ml-2 pb-2">
-                 <div className="w-16 sm:w-20 md:w-32 h-2 border-b-4 md:border-b-8 border-dashed border-slate-300 rounded-full opacity-50"></div>
+                 {gameState.currentSentence.length === 0 ? (
+                    <span className="text-slate-300 font-bold text-xl md:text-3xl animate-pulse">Start story...</span>
+                 ) : (
+                    <div className="w-16 sm:w-20 md:w-32 h-2 border-b-4 md:border-b-8 border-dashed border-slate-300 rounded-full opacity-50"></div>
+                 )}
                </div>
              )}
           </div>
           
-          {/* Main Sentence Speaker Button - Bottom Right */}
+          {/* Main Sentence Speaker Button */}
           {gameState.currentSentence.length > 0 && (
-             <SpeakerButton 
-               onClick={handlePlayFullSentence} 
-               isPlaying={isPlayingFullSentence}
-             />
-          )}
-
-          {gameState.currentSentence.length === 0 && !loading && (
-             <div className="text-slate-300 font-bold text-xl md:text-4xl animate-pulse absolute inset-0 flex items-center justify-center">
-                Building story...
-             </div>
+            <div className="sticky bottom-0 right-0 w-full flex justify-end pointer-events-none">
+              <div className="pointer-events-auto">
+                 <SpeakerButton 
+                   onClick={handlePlayFullSentence} 
+                   isPlaying={isPlayingFullSentence}
+                   className="!static !m-2" 
+                 />
+              </div>
+            </div>
           )}
         </div>
 
         {/* INTERACTION AREA */}
-        <div className="min-h-[140px] sm:min-h-[160px] md:min-h-[240px] flex items-end">
+        <div className="min-h-[140px] sm:min-h-[160px] md:min-h-[240px] flex items-end shrink-0">
            {gameState.isComplete ? (
               // COMPLETION CARD
               <div className="w-full bg-orange-100/90 backdrop-blur rounded-[2rem] p-4 md:p-6 flex flex-col items-center justify-center text-center animate-fade-in border-4 border-white shadow-lg relative overflow-hidden">
@@ -375,8 +460,14 @@ const App: React.FC = () => {
                  ) : (
                     <div className="w-full h-full flex flex-col md:flex-row items-center gap-4 md:gap-6">
                         {storyImage && (
-                          <div className="w-32 h-32 sm:w-48 sm:h-48 md:w-64 md:h-64 rounded-2xl overflow-hidden shadow-lg shrink-0 border-4 border-white rotate-[-2deg] bg-white transform transition-transform hover:scale-105">
+                          <div 
+                             className="group relative w-32 h-32 sm:w-48 sm:h-48 md:w-64 md:h-64 rounded-2xl overflow-hidden shadow-lg shrink-0 border-4 border-white rotate-[-2deg] bg-white transform transition-transform hover:scale-105 cursor-zoom-in"
+                             onClick={() => setZoomedImage(storyImage)}
+                          >
                              <img src={storyImage} alt="Story illustration" className="w-full h-full object-cover" />
+                             <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <ZoomIn className="text-white w-8 h-8 drop-shadow-md" />
+                             </div>
                           </div>
                         )}
                         <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left h-full justify-center">
