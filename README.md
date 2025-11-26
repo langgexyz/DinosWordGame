@@ -1,20 +1,52 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 🦖 Dino's Word Game
 
-# Run and deploy your AI Studio app
+AI-powered English learning picture book for kids (4-6 years old).
 
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/drive/1vVrNJ5k1zF72HtdYdGS6W7VqyF8iiCBl
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
+## Setup
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+```bash
+npm install
+```
+
+2. Configure API key:
+```bash
+# Create .env.local file
+echo "API_KEY=your_gemini_api_key" > .env.local
+```
+Get your API key from: https://aistudio.google.com/app/apikey
+
 3. Run the app:
-   `npm run dev`
+```bash
+npm run dev
+```
+
+## Testing
+
+```bash
+# Run mock demo (查看测试数据格式，无需网络)
+npx tsx test/gemini-mock.test.ts
+
+# Run unit tests (需要网络连接)
+npm test
+
+# Generate long story to test token optimization
+TEST_LONG_STORY=50 npm test
+```
+
+### 网络问题排查
+
+如果测试失败并提示 "Connect Timeout Error"，请检查：
+1. 网络是否能访问 Google API (`generativelanguage.googleapis.com`)
+2. 是否需要配置代理
+3. 防火墙设置
+
+可以先运行 mock 测试查看预期的数据格式。
+
+## Features
+
+- ✅ Bilingual AI assistant (Chinese + English)
+- ✅ Voice synthesis for listening practice
+- ✅ AI-generated illustrations
+- ✅ Multiple educational scenes (safety, social skills, daily life)
+- ✅ Context compression for long stories (optimized token usage)
