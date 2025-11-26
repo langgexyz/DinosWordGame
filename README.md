@@ -12,7 +12,7 @@ npm install
 2. Configure API key:
 ```bash
 # Create .env.local file
-echo "API_KEY=your_gemini_api_key" > .env.local
+echo "GEMINI_API_KEY=your_gemini_api_key" > .env.local
 ```
 Get your API key from: https://aistudio.google.com/app/apikey
 

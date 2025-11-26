@@ -20,6 +20,12 @@ export interface StoryPage {
   translation?: string;
 }
 
+export interface TokenUsage {
+  prompt: number;
+  response: number;
+  total: number;
+}
+
 export interface GameState {
   history: StoryPage[];
   currentSentence: WordOption[];
@@ -28,6 +34,7 @@ export interface GameState {
   isComplete: boolean;
   englishTranslation?: string;
   scene: Scene;
+  tokenUsage?: TokenUsage;
 }
 
 export interface ApiError {

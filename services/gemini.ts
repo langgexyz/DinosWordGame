@@ -2,7 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { GameState, WordOption, SceneType, StoryPage } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const SYSTEM_INSTRUCTION = `
 You are "Dino" (小恐龙), a cute, energetic 4-year-old dinosaur friend.
