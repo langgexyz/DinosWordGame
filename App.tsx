@@ -209,20 +209,20 @@ const App: React.FC = () => {
   // --- START SCREEN ---
   if (!started) {
     return (
-      <div className="min-h-screen bg-sky-50 flex items-center justify-center p-8 relative overflow-hidden">
-        <div className="blob bg-green-300 w-96 h-96 rounded-full top-0 left-0 mix-blend-multiply blur-3xl opacity-50"></div>
-        <div className="blob bg-purple-300 w-96 h-96 rounded-full bottom-0 right-0 mix-blend-multiply blur-3xl opacity-50"></div>
+      <div className="min-h-screen bg-sky-50 flex items-center justify-center p-6 md:p-8 relative overflow-hidden">
+        <div className="blob bg-green-300 w-64 h-64 md:w-96 md:h-96 rounded-full top-0 left-0 mix-blend-multiply blur-3xl opacity-50"></div>
+        <div className="blob bg-purple-300 w-64 h-64 md:w-96 md:h-96 rounded-full bottom-0 right-0 mix-blend-multiply blur-3xl opacity-50"></div>
 
-        <div className="bg-white/90 backdrop-blur-xl p-10 md:p-16 rounded-[3rem] shadow-2xl text-center max-w-2xl w-full border-4 border-white/50 animate-fade-in-up">
-          <div className="text-9xl mb-8 animate-bounce inline-block">🦖</div>
-          <h1 className="text-5xl md:text-7xl font-black text-slate-800 mb-6 tracking-tight">
+        <div className="bg-white/90 backdrop-blur-xl p-8 md:p-16 rounded-[2rem] md:rounded-[3rem] shadow-2xl text-center max-w-2xl w-full border-4 border-white/50 animate-fade-in-up">
+          <div className="text-7xl md:text-9xl mb-6 md:mb-8 animate-bounce inline-block">🦖</div>
+          <h1 className="text-4xl sm:text-5xl md:text-7xl font-black text-slate-800 mb-4 md:mb-6 tracking-tight">
             Dino's <span className="text-green-500">Story</span>
           </h1>
-          <p className="text-slate-500 text-xl md:text-2xl mb-10 font-medium leading-relaxed">
+          <p className="text-slate-500 text-lg md:text-2xl mb-8 md:mb-10 font-medium leading-relaxed">
              Join Dino & Xixi to build a magical world!<br/>
-             <span className="text-base text-slate-400 mt-2 block">Parent-Child English Adventure</span>
+             <span className="text-sm md:text-base text-slate-400 mt-2 block">Parent-Child English Adventure</span>
           </p>
-          <Button onClick={startGame} size="lg" className="w-full text-2xl py-8 rounded-3xl shadow-lg bg-green-500 hover:bg-green-600 active:scale-95 transition-all">
+          <Button onClick={startGame} size="lg" className="w-full text-xl md:text-2xl py-6 md:py-8 rounded-2xl md:rounded-3xl shadow-lg bg-green-500 hover:bg-green-600 active:scale-95 transition-all">
              Start Adventure! 🚀
           </Button>
         </div>
@@ -255,7 +255,7 @@ const App: React.FC = () => {
           {Array.from({ length: 6 }).map((_, i) => (
             <div 
               key={i}
-              className="absolute text-4xl opacity-20 animate-float"
+              className="absolute text-2xl md:text-4xl opacity-20 animate-float"
               style={{
                 top: `${Math.random() * 100}%`,
                 left: `${Math.random() * 100}%`,
@@ -268,42 +268,42 @@ const App: React.FC = () => {
           ))}
        </div>
 
-      <div className="w-full max-w-5xl mx-auto flex flex-col h-screen p-4 md:p-6 lg:p-8 relative z-10">
+      <div className="w-full max-w-5xl mx-auto flex flex-col h-screen p-3 sm:p-4 md:p-6 lg:p-8 relative z-10">
         
         {/* TOP BAR */}
-        <div className="flex justify-between items-center mb-4 md:mb-6">
-           <div className="bg-white/60 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 shadow-sm border border-white/50">
-              <span className="text-xl">{gameState.scene?.backgroundEmoji}</span>
-              <span className="font-bold text-slate-600 uppercase tracking-wider text-sm md:text-base">
+        <div className="flex justify-between items-center mb-3 md:mb-6">
+           <div className="bg-white/60 backdrop-blur-md px-3 py-1.5 md:px-4 md:py-2 rounded-full flex items-center gap-2 shadow-sm border border-white/50">
+              <span className="text-lg md:text-xl">{gameState.scene?.backgroundEmoji}</span>
+              <span className="font-bold text-slate-600 uppercase tracking-wider text-xs md:text-base">
                 {gameState.scene?.type || 'Adventure'}
               </span>
            </div>
            
            {gameState.storyHistory.length > 0 && (
-              <button onClick={playWholeStory} className="bg-white/80 hover:bg-white px-4 py-2 rounded-full font-bold text-sky-600 shadow-sm flex items-center gap-2 transition-colors">
-                <BookOpen className="w-5 h-5" />
-                <span className="hidden md:inline">Read Story</span>
+              <button onClick={playWholeStory} className="bg-white/80 hover:bg-white px-3 py-1.5 md:px-4 md:py-2 rounded-full font-bold text-sky-600 shadow-sm flex items-center gap-2 transition-colors text-sm md:text-base">
+                <BookOpen className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="hidden sm:inline">Read Story</span>
               </button>
            )}
         </div>
 
         {/* DINO COMPANION AREA */}
-        <div className="bg-white/90 backdrop-blur-xl p-4 md:p-6 rounded-[2.5rem] shadow-lg mb-6 flex items-center gap-4 md:gap-6 border-2 border-white">
+        <div className="bg-white/90 backdrop-blur-xl p-3 md:p-6 rounded-[2rem] md:rounded-[2.5rem] shadow-lg mb-4 md:mb-6 flex items-center gap-3 md:gap-6 border-2 border-white">
           <div className="relative shrink-0">
-             <div className="w-20 h-20 md:w-28 md:h-28 rounded-full bg-green-100 flex items-center justify-center text-5xl md:text-6xl shadow-inner border-4 border-white">
+             <div className="w-16 h-16 md:w-28 md:h-28 rounded-full bg-green-100 flex items-center justify-center text-4xl md:text-6xl shadow-inner border-4 border-white">
                🦖
              </div>
              {(loading || isGeneratingImage) && (
-               <div className="absolute -top-2 -right-2 bg-yellow-400 p-2 rounded-full shadow-sm animate-bounce">
-                 <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-yellow-900" />
+               <div className="absolute -top-1 -right-1 md:-top-2 md:-right-2 bg-yellow-400 p-1.5 md:p-2 rounded-full shadow-sm animate-bounce">
+                 <Sparkles className="w-4 h-4 md:w-6 md:h-6 text-yellow-900" />
                </div>
              )}
           </div>
           
           <div className="flex-1">
-             <div className="bg-slate-100 rounded-3xl p-4 md:p-6 relative rounded-tl-none pr-12 md:pr-16">
-                <div className="absolute top-0 -left-3 w-6 h-6 bg-slate-100 clip-path-polygon"></div>
-                <p className="text-slate-800 font-bold text-lg md:text-2xl leading-relaxed">
+             <div className="bg-slate-100 rounded-2xl md:rounded-3xl p-3 md:p-6 relative rounded-tl-none pr-10 md:pr-16">
+                <div className="absolute top-0 -left-2 md:-left-3 w-4 h-4 md:w-6 md:h-6 bg-slate-100 clip-path-polygon"></div>
+                <p className="text-slate-800 font-bold text-base sm:text-lg md:text-2xl leading-relaxed">
                    {isGeneratingImage ? "Painting a picture for you! 🎨" : gameState.aiComment}
                 </p>
                 <SpeakerButton 
@@ -315,22 +315,20 @@ const App: React.FC = () => {
         </div>
 
         {/* MAIN SENTENCE DISPLAY */}
-        <div className="flex-1 bg-white/80 backdrop-blur-md rounded-[2.5rem] border-4 border-white shadow-xl p-6 md:p-10 mb-6 flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="flex-1 bg-white/80 backdrop-blur-md rounded-[2rem] md:rounded-[2.5rem] border-4 border-white shadow-xl p-4 md:p-10 mb-4 md:mb-6 flex flex-col items-center justify-center relative overflow-hidden">
           
-          <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6 pb-12">
+          <div className="flex flex-wrap items-end justify-center gap-2 md:gap-4 lg:gap-6 pb-12">
              {gameState.currentSentence.map((word, idx) => (
                <div key={idx} className="flex flex-col items-center animate-fly-in">
-                  <span className="text-4xl md:text-6xl lg:text-7xl font-black text-slate-800 drop-shadow-sm tracking-tight mb-1 md:mb-2">{word.word}</span>
-                  <span className="text-2xl md:text-4xl filter drop-shadow-md transform transition-transform hover:scale-125">{word.emoji}</span>
+                  <span className="text-xl sm:text-2xl md:text-4xl filter drop-shadow-md transform transition-transform hover:scale-125 mb-1">{word.emoji}</span>
+                  <span className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-slate-800 drop-shadow-sm tracking-tight">{word.word}</span>
                </div>
              ))}
 
              {/* Cursor / Placeholder */}
              {!gameState.isComplete && (
-               <div className="flex flex-col items-center justify-end h-full ml-2">
-                 <div className="w-20 md:w-32 h-16 md:h-20 border-b-4 border-dashed border-slate-300 rounded-lg flex items-center justify-center opacity-50">
-                    {/* Placeholder visual */}
-                 </div>
+               <div className="flex flex-col items-center justify-end h-full ml-1 md:ml-2 pb-2">
+                 <div className="w-16 sm:w-20 md:w-32 h-2 border-b-4 md:border-b-8 border-dashed border-slate-300 rounded-full opacity-50"></div>
                </div>
              )}
           </div>
@@ -344,47 +342,47 @@ const App: React.FC = () => {
           )}
 
           {gameState.currentSentence.length === 0 && !loading && (
-             <div className="text-slate-300 font-bold text-2xl md:text-4xl animate-pulse absolute inset-0 flex items-center justify-center">
+             <div className="text-slate-300 font-bold text-xl md:text-4xl animate-pulse absolute inset-0 flex items-center justify-center">
                 Building story...
              </div>
           )}
         </div>
 
         {/* INTERACTION AREA */}
-        <div className="min-h-[160px] md:min-h-[240px] flex items-end">
+        <div className="min-h-[140px] sm:min-h-[160px] md:min-h-[240px] flex items-end">
            {gameState.isComplete ? (
               // COMPLETION CARD
               <div className="w-full bg-orange-100/90 backdrop-blur rounded-[2rem] p-4 md:p-6 flex flex-col items-center justify-center text-center animate-fade-in border-4 border-white shadow-lg relative overflow-hidden">
                  
                  {isGeneratingImage ? (
-                    <div className="flex flex-col items-center justify-center py-8">
-                       <span className="text-6xl mb-4 animate-bounce">🖌️</span>
-                       <p className="text-orange-500 font-bold text-xl animate-pulse">Creating masterpiece...</p>
+                    <div className="flex flex-col items-center justify-center py-4 md:py-8">
+                       <span className="text-4xl md:text-6xl mb-4 animate-bounce">🖌️</span>
+                       <p className="text-orange-500 font-bold text-lg md:text-xl animate-pulse">Creating masterpiece...</p>
                     </div>
                  ) : (
-                    <div className="w-full h-full flex flex-col md:flex-row items-center gap-6">
+                    <div className="w-full h-full flex flex-col md:flex-row items-center gap-4 md:gap-6">
                         {storyImage && (
-                          <div className="w-48 h-48 md:w-64 md:h-64 rounded-2xl overflow-hidden shadow-lg shrink-0 border-4 border-white rotate-[-2deg] bg-white">
+                          <div className="w-32 h-32 sm:w-48 sm:h-48 md:w-64 md:h-64 rounded-2xl overflow-hidden shadow-lg shrink-0 border-4 border-white rotate-[-2deg] bg-white">
                              <img src={storyImage} alt="Story illustration" className="w-full h-full object-cover" />
                           </div>
                         )}
                         <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left">
-                            <div className="flex items-center gap-2 text-orange-600 mb-2">
-                                <Star className="w-6 h-6 fill-orange-500" />
-                                <h2 className="text-2xl font-black uppercase">Great Job!</h2>
+                            <div className="flex items-center gap-2 text-orange-600 mb-1 md:mb-2">
+                                <Star className="w-5 h-5 md:w-6 md:h-6 fill-orange-500" />
+                                <h2 className="text-xl md:text-2xl font-black uppercase">Great Job!</h2>
                             </div>
-                            <p className="text-slate-700 text-lg md:text-2xl font-bold mb-2">
+                            <p className="text-slate-700 text-lg md:text-2xl font-bold mb-2 leading-snug">
                                 "{gameState.englishTranslation}"
                             </p>
                              {/* Progress Bar for Auto Advance */}
-                             <div className="w-full max-w-xs h-3 bg-white/50 rounded-full overflow-hidden shadow-inner mt-4">
+                             <div className="w-full max-w-xs h-2 md:h-3 bg-white/50 rounded-full overflow-hidden shadow-inner mt-2 md:mt-4">
                                 <div 
                                 className="h-full bg-orange-500 transition-all duration-100 ease-linear rounded-full"
                                 style={{ width: `${((6000 - (autoAdvanceTimer || 6000)) / 6000) * 100}%` }}
                                 />
                             </div>
-                            <p className="mt-2 text-orange-400 font-bold text-sm flex items-center gap-2">
-                                Next page <ArrowRight className="w-4 h-4 animate-pulse"/>
+                            <p className="mt-2 text-orange-400 font-bold text-xs md:text-sm flex items-center gap-2">
+                                Next page <ArrowRight className="w-3 h-3 md:w-4 md:h-4 animate-pulse"/>
                             </p>
                         </div>
                     </div>
@@ -393,7 +391,7 @@ const App: React.FC = () => {
               </div>
            ) : (
               // OPTIONS GRID
-              <div className="w-full grid grid-cols-2 gap-4 md:gap-8">
+              <div className="w-full grid grid-cols-2 gap-3 md:gap-8 h-full">
                 {loading && gameState.nextOptions.length === 0 ? (
                   [1, 2].map(i => (
                     <div key={i} className="aspect-[16/9] md:aspect-video rounded-3xl bg-white/40 animate-pulse border-2 border-white/50"></div>
