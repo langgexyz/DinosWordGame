@@ -32,14 +32,13 @@ const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>({
     storyHistory: [],
     currentSentence: [],
-    aiComment: "Rawr! Hi Xixi! Let's play!",
+    aiComment: "Rawr! Let's play!",
     nextOptions: [],
     isComplete: false,
     scene: { type: 'default', backgroundEmoji: '🦕', colorTheme: '' }
   });
   const [loading, setLoading] = useState(false);
   const [started, setStarted] = useState(false);
-  const [autoAdvanceTimer, setAutoAdvanceTimer] = useState<number | null>(null);
   
   // Image Generation State
   const [storyImage, setStoryImage] = useState<string | null>(null);
@@ -51,6 +50,9 @@ const App: React.FC = () => {
   // Audio State
   const [isPlayingFullSentence, setIsPlayingFullSentence] = useState(false);
   const [isDinoSpeaking, setIsDinoSpeaking] = useState(false);
+  
+  // Voice Sync Animation State
+  const [highlightedWord, setHighlightedWord] = useState<string | null>(null);
 
   const themeClass = SCENE_THEMES[gameState.scene?.type] || SCENE_THEMES.default;
   const floatingEmoji = SCENE_ELEMENTS[gameState.scene?.type] || SCENE_ELEMENTS.default;
@@ -69,9 +71,34 @@ const App: React.FC = () => {
       if (lang === 'zh-CN') setIsDinoSpeaking(true);
       if (lang === 'en-US' && text.length > 20) setIsPlayingFullSentence(true); // Rough heuristic
 
+      // Voice Boundary Event for Highlighting
+      utterance.onboundary = (event) => {
+        if (event.name === 'word') {
+          // Extract the word starting at this char index
+          // We look ahead until we hit a space or punctuation
+          const textFromIndex = utterance.text.slice(event.charIndex);
+          const match = textFromIndex.match(/^[\w']+/);
+          
+          if (match) {
+            const currentSpokenWord = match[0].toLowerCase();
+            // Check if this spoken word matches one of our options
+            const matchedOption = gameState.nextOptions.find(
+              opt => opt.word.toLowerCase() === currentSpokenWord
+            );
+            
+            if (matchedOption) {
+              setHighlightedWord(matchedOption.word.toLowerCase());
+              // Clear highlight after a short delay or it stays until next word
+              setTimeout(() => setHighlightedWord(null), 1500);
+            }
+          }
+        }
+      };
+
       utterance.onend = () => {
         setIsDinoSpeaking(false);
         setIsPlayingFullSentence(false);
+        setHighlightedWord(null);
       };
       
       window.speechSynthesis.speak(utterance);
@@ -180,21 +207,7 @@ const App: React.FC = () => {
         const img = await generateStoryImage(text, gameState.scene.type);
         setStoryImage(img);
         setIsGeneratingImage(false);
-
-        // Start Auto Advance Timer AFTER image is ready (or failed)
-        let timeLeft = 6000; // Give 6 seconds to look at image
-        const startTime = Date.now();
-        const interval = setInterval(() => {
-           const elapsed = Date.now() - startTime;
-           const remaining = Math.max(0, 6000 - elapsed);
-           setAutoAdvanceTimer(remaining);
-           if (remaining <= 0) {
-             clearInterval(interval);
-             setAutoAdvanceTimer(null);
-             continueStory();
-           }
-        }, 50);
-        return () => clearInterval(interval);
+        // Removed Auto-Advance Timer here to let user decide when to continue
       };
 
       generateAndAdvance();
@@ -219,7 +232,7 @@ const App: React.FC = () => {
             Dino's <span className="text-green-500">Story</span>
           </h1>
           <p className="text-slate-500 text-lg md:text-2xl mb-8 md:mb-10 font-medium leading-relaxed">
-             Join Dino & Xixi to build a magical world!<br/>
+             Listen, Speak, and Play!<br/>
              <span className="text-sm md:text-base text-slate-400 mt-2 block">Parent-Child English Adventure</span>
           </p>
           <Button onClick={startGame} size="lg" className="w-full text-xl md:text-2xl py-6 md:py-8 rounded-2xl md:rounded-3xl shadow-lg bg-green-500 hover:bg-green-600 active:scale-95 transition-all">
@@ -362,28 +375,22 @@ const App: React.FC = () => {
                  ) : (
                     <div className="w-full h-full flex flex-col md:flex-row items-center gap-4 md:gap-6">
                         {storyImage && (
-                          <div className="w-32 h-32 sm:w-48 sm:h-48 md:w-64 md:h-64 rounded-2xl overflow-hidden shadow-lg shrink-0 border-4 border-white rotate-[-2deg] bg-white">
+                          <div className="w-32 h-32 sm:w-48 sm:h-48 md:w-64 md:h-64 rounded-2xl overflow-hidden shadow-lg shrink-0 border-4 border-white rotate-[-2deg] bg-white transform transition-transform hover:scale-105">
                              <img src={storyImage} alt="Story illustration" className="w-full h-full object-cover" />
                           </div>
                         )}
-                        <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left">
+                        <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left h-full justify-center">
                             <div className="flex items-center gap-2 text-orange-600 mb-1 md:mb-2">
                                 <Star className="w-5 h-5 md:w-6 md:h-6 fill-orange-500" />
                                 <h2 className="text-xl md:text-2xl font-black uppercase">Great Job!</h2>
                             </div>
-                            <p className="text-slate-700 text-lg md:text-2xl font-bold mb-2 leading-snug">
+                            <p className="text-slate-700 text-lg md:text-2xl font-bold mb-4 leading-snug">
                                 "{gameState.englishTranslation}"
                             </p>
-                             {/* Progress Bar for Auto Advance */}
-                             <div className="w-full max-w-xs h-2 md:h-3 bg-white/50 rounded-full overflow-hidden shadow-inner mt-2 md:mt-4">
-                                <div 
-                                className="h-full bg-orange-500 transition-all duration-100 ease-linear rounded-full"
-                                style={{ width: `${((6000 - (autoAdvanceTimer || 6000)) / 6000) * 100}%` }}
-                                />
-                            </div>
-                            <p className="mt-2 text-orange-400 font-bold text-xs md:text-sm flex items-center gap-2">
-                                Next page <ArrowRight className="w-3 h-3 md:w-4 md:h-4 animate-pulse"/>
-                            </p>
+                            
+                            <Button onClick={continueStory} size="lg" className="w-full md:w-auto bg-orange-500 hover:bg-orange-600 shadow-lg text-xl px-8 rounded-full animate-bounce-subtle">
+                                Next <ArrowRight className="w-6 h-6 ml-2" />
+                            </Button>
                         </div>
                     </div>
                  )}
@@ -394,14 +401,17 @@ const App: React.FC = () => {
               <div className="w-full grid grid-cols-2 gap-3 md:gap-8 h-full">
                 {loading && gameState.nextOptions.length === 0 ? (
                   [1, 2].map(i => (
-                    <div key={i} className="aspect-[16/9] md:aspect-video rounded-3xl bg-white/40 animate-pulse border-2 border-white/50"></div>
+                    <div key={i} className="aspect-[16/9] md:aspect-video rounded-3xl bg-white/40 animate-shimmer border-2 border-white/50 relative overflow-hidden flex items-center justify-center">
+                       <div className="text-4xl md:text-6xl opacity-30 animate-bounce">🐾</div>
+                    </div>
                   ))
                 ) : (
                   gameState.nextOptions.map((option, idx) => (
                     <OptionCard 
                       key={idx}
                       option={option} 
-                      onClick={() => handleOptionClick(option)} 
+                      onClick={() => handleOptionClick(option)}
+                      isHighlighted={highlightedWord === option.word.toLowerCase()}
                     />
                   ))
                 )}
