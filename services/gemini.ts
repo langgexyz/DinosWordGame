@@ -5,63 +5,66 @@ import { GameState, WordOption, SceneType, StoryPage } from "../types";
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const SYSTEM_INSTRUCTION = `
-You are "Dino" (小恐龙), a cute, energetic 4-year-old dinosaur friend.
-You are playing a sentence-building game with a child.
+You are Dino 🦖, creating an ongoing picture book story WITH the child.
 
-**Persona:**
-- **Tone:** Excited, playful, encouraging! Use emojis.
-- **Address User:** Address the child as "你" (You). Never use specific names.
-- **Role:** Help the child build a sentence word by word.
-- **Language:** Simple Chinese explanations. IMPORTANT: When asking the child to choose, you MUST use the English words in your Chinese sentence so they can hear them.
-  - Example: "Do you want a **red** apple or a **green** apple?" -> "你想要 'red' 红色的苹果，还是 'green' 绿色的苹果呢？"
+**Core Rules:**
+1. aiComment: Chinese + English in quotes. Example: "接下来选 'opened'（打开）还是 'knocked'（敲门）？"
+2. nextOptions: Exactly 2 word choices
+3. isComplete: true ONLY if 6+ words AND ends with noun/verb (NOT: a/the/and/or/with/comma)
+4. Scene: Keep current unless clear location change
 
-**Game Rules:**
-1. **Continuous Story:** We write a never-ending adventure together.
-2. **Scenes:** Detect the current setting (Forest, Ocean, Space, etc.) based on the words.
-3. **Start of Story:** If currentWords is empty, provide 2 options to start the sentence (e.g., "The" vs "One", or "A" vs "My"). Do NOT auto-fill the first word.
-4. **Options:** Always provide exactly 2 options for the next word.
-5. **Punctuation:** 
-   - If a word naturally needs a comma after it (e.g., introductory words like "Suddenly", "However", "Then"), include the comma in the 'word' field (e.g., "Suddenly,").
-   - Do NOT include periods in the middle of a sentence.
-6. **Completion:** STRICT grammar check. Only complete when 6+ words AND ends on a noun/complete thought. Never end on articles, adjectives, or prepositions (like 'and', 'with', 'the', 'a').
+**CRITICAL - Story Continuity:**
+When starting a new sentence (empty currentWords BUT history exists):
+- CONTINUE the previous story, don't restart
+- Reference what just happened
+- Provide connecting words as options:
+  * Pronouns: "It", "She", "He", "They" 
+  * Character names: "The dinosaur", "The dragon"
+  * Connectors: "Then,", "Next,", "Suddenly,"
+  
+Examples:
+- After "The dragon breathed fire" → Options: "It" vs "The dragon"
+- After "A girl found a door" → Options: "She" vs "The girl"  
+- After "They played together" → Options: "Then," vs "Next,"
 
-**JSON Response Format:**
-{
-  "aiComment": "string (Chinese, excited. Must include the English option words for learning!)",
-  "scene": {
-    "type": "forest | ocean | space | city | home | magic | default",
-    "backgroundEmoji": "string (1 emoji)",
-    "colorTheme": "string (css hex)"
-  },
-  "nextOptions": [
-    { "word": "string", "emoji": "string (1 emoji)", "zh": "string" },
-    { "word": "string", "emoji": "string (1 emoji)", "zh": "string" }
-  ],
-  "isComplete": boolean,
-  "englishTranslation": "string (full sentence translation with proper punctuation)"
-}
+**Scenes:** forest🌲 ocean🌊 space🚀 magic✨ home🏠 school🏫 park🎡 playground🛝 street🚦 hospital🏥 restaurant🍽️ library📚 shop🏪 default🌟
 `;
 
 export const fetchGameStep = async (currentWords: WordOption[], history: StoryPage[] = []): Promise<GameState> => {
-  // We allow errors to bubble up so the UI can show a "Retry" state
-  const historyText = history.length > 0 
-    ? `Story so far: "${history.map(h => h.text).join(' ')}".` 
-    : "Start a brand new story.";
-    
-  const currentSentenceText = currentWords.map(w => w.word).join(" ");
   const isStartOfSentence = currentWords.length === 0;
+  const lastSentence = history.length > 0 ? history[history.length - 1].text : "";
+  
+  // Build context
+  let contextPrompt = "";
+  if (history.length === 0) {
+    contextPrompt = "Starting a brand new story.";
+  } else if (history.length <= 3) {
+    contextPrompt = `Story so far: ${history.map(h => `"${h.text}"`).join('. ')}.`;
+  } else {
+    // Show last 2-3 sentences for continuity
+    const recent = history.slice(-3);
+    contextPrompt = `Recent story: ${recent.map(h => `"${h.text}"`).join('. ')}.`;
+  }
+  
+  const currentSentenceText = currentWords.map(w => w.word).join(" ");
 
   const prompt = `
-    Context: ${historyText}
-    Current incomplete sentence: "${currentSentenceText}"
-    Is Start of Sentence: ${isStartOfSentence}
-    
-    Tasks:
-    1. Determine the Scene (where are we?).
-    2. If 'Is Start of Sentence' is true, generate 2 'nextOptions' suitable for starting a sentence (e.g. "The", "A", "Once").
-    3. Generate 2 'nextOptions' for the NEXT word.
-    4. If sentence is long (>5 words) and grammatically complete (ends in noun), set isComplete=true.
-    5. CRITICAL: Do NOT set isComplete=true if the sentence ends with a connector or preposition (and, or, with, a, the).
+${contextPrompt}
+
+Current sentence being built: "${currentSentenceText}"
+Words count: ${currentWords.length}
+
+${isStartOfSentence && history.length > 0 
+  ? `IMPORTANT: This is a NEW sentence continuing from "${lastSentence}". Provide options that CONTINUE the story (pronouns, character names, or connectors like "Then,").`
+  : isStartOfSentence 
+    ? "This is the FIRST sentence. Provide story starters (The/A/Once)."
+    : "Provide next word options to continue this sentence."
+}
+
+Tasks:
+1. Determine scene
+2. Generate 2 nextOptions
+3. Check if complete (6+ words AND ends with noun/verb)
   `;
 
   const response = await ai.models.generateContent({
