@@ -1,14 +1,19 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { GameState, WordOption, StoryPage } from './types';
-import { fetchGameStep, generateStoryImage } from './services/gemini';
+import React, { useState, useEffect, useMemo } from 'react';
+import { GameState, WordOption, StoryPage, Scene, CreationPhase, Story } from './types';
+import { fetchGameStep, generateStoryImage, generateStoryTitle, AIResponse } from './services/gemini';
 import { createSpeechService } from './services/speech';
 import { GameHeader } from './components/GameHeader';
 import { DinoCompanion } from './components/DinoCompanion';
 import { SentenceDisplay } from './components/SentenceDisplay';
 import { GameOptions } from './components/GameOptions';
+import { StoryLibrary } from './components/StoryLibrary/StoryLibrary';
+import { StoryReader } from './components/StoryReader/StoryReader';
+import { CompletedPagesViewer } from './components/CompletedPagesViewer';
 import { Button } from './components/Button';
 import { RefreshCw } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useStoryStore } from './stores/storyStore';
+import { generateStoryCover } from './data/storyCover';
 
 // Theme configurations for different scenes
 const SCENE_THEMES: Record<string, string> = {
@@ -48,25 +53,39 @@ const SCENE_ELEMENTS: Record<string, string> = {
 };
 
 const App: React.FC = () => {
+  // 初始化游戏状态 - 基于新的数据模型
   const [gameState, setGameState] = useState<GameState>({
-    history: [],
-    currentSentence: [],
-    aiComment: "Rawr! Let's play!",
-    nextOptions: [],
-    isComplete: false,
-    englishTranslation: "",
-    scene: { type: 'default', backgroundEmoji: '🦕', colorTheme: '' }
+    currentStoryId: null,  // null 表示新故事
+    currentPage: {
+      words: [],
+      scene: { type: 'default', backgroundEmoji: '🦕', colorTheme: '' },
+      isComplete: false
+    },
+    ai: {
+      comment: "Rawr! Let's play!",
+      nextOptions: [],
+      phase: 'building'
+    },
+    ui: {
+      isGeneratingImage: false,
+      generatedImage: null,
+      loading: false,
+      error: null
+    }
   });
   
-  const [loading, setLoading] = useState(false);
-  const [started, setStarted] = useState(false);
-  const [storyImage, setStoryImage] = useState<string | null>(null);
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const [hasError, setHasError] = useState(false);
+  // UI 路由状态
+  type ViewMode = 'start' | 'game' | 'library' | 'reader';
+  const [viewMode, setViewMode] = useState<ViewMode>('start');
+  const [readingStory, setReadingStory] = useState<Story | null>(null);
+  
   const [isPlayingFullSentence, setIsPlayingFullSentence] = useState(false);
   const [isDinoSpeaking, setIsDinoSpeaking] = useState(false);
   const [highlightedWord, setHighlightedWord] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  
+  // 故事操作
+  const { addStory, updateStory, getStory } = useStoryStore();
 
   // 创建语音服务实例
   const speechService = useMemo(() => createSpeechService({}, {
@@ -77,7 +96,7 @@ const App: React.FC = () => {
       setHighlightedWord(null);
     },
     onBoundary: (word) => {
-      const matchedOption = gameState.nextOptions.find(
+      const matchedOption = gameState.ai.nextOptions.find(
         opt => opt.word.toLowerCase() === word
       );
       if (matchedOption) {
@@ -85,64 +104,172 @@ const App: React.FC = () => {
         setTimeout(() => setHighlightedWord(null), 1500);
       }
     }
-  }), [gameState.nextOptions]);
+  }), [gameState.ai.nextOptions]);
 
-  const themeClass = SCENE_THEMES[gameState.scene?.type] || SCENE_THEMES.default;
-  const floatingEmoji = SCENE_ELEMENTS[gameState.scene?.type] || SCENE_ELEMENTS.default;
+  // 获取当前故事（如果存在）
+  const getCurrentStory = (): Story | undefined => {
+    if (!gameState.currentStoryId) return undefined;
+    return getStory(gameState.currentStoryId);
+  };
+  
+  // 获取当前故事的所有已完成页面
+  const getCompletedPages = (): StoryPage[] => {
+    const story = getCurrentStory();
+    return story?.pages || [];
+  };
+  
+  const currentScene = gameState.currentPage.scene;
+  const themeClass = SCENE_THEMES[currentScene?.type] || SCENE_THEMES.default;
+  const floatingEmoji = SCENE_ELEMENTS[currentScene?.type] || SCENE_ELEMENTS.default;
 
-  // 处理游戏步骤
-  const processGameStep = async (sentence: WordOption[], history: StoryPage[]) => {
-    setLoading(true);
-    setHasError(false);
+  // ============================================
+  // 核心业务逻辑
+  // ============================================
+  
+  // 处理游戏步骤 - 请求 AI 获取下一步引导
+  const processGameStep = async (currentWords: WordOption[]) => {
+    setGameState(prev => ({
+      ...prev,
+      ui: { ...prev.ui, loading: true, error: null }
+    }));
     
     try {
-      const nextState = await fetchGameStep(sentence, history);
-      setGameState(nextState);
+      // 获取已完成的页面历史
+      const completedPages = getCompletedPages();
       
-      if (!nextState.isComplete) {
-        setTimeout(() => speechService.speak(nextState.aiComment, "zh-CN"), 800);
-      }
+      const aiResponse: AIResponse = await fetchGameStep(
+        currentWords,
+        completedPages
+      );
 
-      // Token usage logging
-      if (nextState.tokenUsage) {
-        console.log('[Token Usage]', nextState.tokenUsage);
+      // 更新状态
+      setGameState(prev => ({
+        ...prev,
+        currentPage: {
+          words: currentWords,
+          scene: aiResponse.scene,
+          isComplete: aiResponse.isComplete,
+          translation: aiResponse.englishTranslation
+        },
+        ai: {
+          comment: aiResponse.aiComment,
+          nextOptions: aiResponse.nextOptions,
+          phase: aiResponse.isComplete ? 'generating' : 'building'
+        },
+        ui: { ...prev.ui, loading: false }
+      }));
+      
+      // 播放 AI 评论（仅在构建阶段）
+      if (!aiResponse.isComplete) {
+        setTimeout(() => speechService.speak(aiResponse.aiComment, "zh-CN"), 800);
       }
     } catch (error) {
       console.error("Game processing error:", error);
-      setHasError(true);
-    } finally {
-      setLoading(false);
+      setGameState(prev => ({
+        ...prev,
+        ui: { ...prev.ui, loading: false, error: 'AI encountered an error' }
+      }));
     }
   };
 
   // 开始游戏
   const startGame = async () => {
-    setLoading(true);
-    setStarted(true);
+    setViewMode('game');
     speechService.speak("吼吼！故事开始啦！", "zh-CN");
-    await processGameStep([], []);
+    
+    // 只创建临时会话ID，不立即保存到 store（防止空故事）
+    const sessionId = `story-${Date.now()}`;
+    
+    // 设置为当前创作的故事ID（但还未创建实际 Story 对象）
+    setGameState(prev => ({
+      ...prev,
+      currentStoryId: sessionId
+    }));
+    
+    await processGameStep([]);
+  };
+  
+  // 打开绘本库
+  const openLibrary = () => {
+    setViewMode('library');
+  };
+  
+  // 打开阅读器
+  const openReader = (story: Story) => {
+    setReadingStory(story);
+    setViewMode('reader');
+  };
+  
+  // 继续创作故事
+  const continueCreatingStory = async (story: Story) => {
+    // 进入游戏模式
+    setViewMode('game');
+    speechService.speak("吼吼！继续我们的故事吧！", "zh-CN");
+    
+    // 设置为当前创作的故事
+    setGameState(prev => ({
+      ...prev,
+      currentStoryId: story.id,
+      currentPage: {
+        words: [],
+        scene: story.pages.length > 0 
+          ? story.pages[story.pages.length - 1].scene 
+          : { type: 'default', backgroundEmoji: '🦕', colorTheme: '' },
+        isComplete: false
+      }
+    }));
+    
+    // 使用 story.pages 直接传递历史（避免状态延迟）
+    try {
+      const aiResponse: AIResponse = await fetchGameStep([], story.pages);
+      
+      setGameState(prev => ({
+        ...prev,
+        currentPage: {
+          words: [],
+          scene: aiResponse.scene,
+          isComplete: aiResponse.isComplete,
+          translation: aiResponse.englishTranslation
+        },
+        ai: {
+          comment: aiResponse.aiComment,
+          nextOptions: aiResponse.nextOptions,
+          phase: aiResponse.isComplete ? 'generating' : 'building'
+        },
+        ui: { ...prev.ui, loading: false }
+      }));
+      
+      // 播放 AI 评论
+      setTimeout(() => speechService.speak(aiResponse.aiComment, "zh-CN"), 800);
+    } catch (error) {
+      console.error('Failed to continue story:', error);
+      setGameState(prev => ({
+        ...prev,
+        ui: { ...prev.ui, error: 'Failed to load story context', loading: false }
+      }));
+    }
+  };
+  
+  // 返回开始界面
+  const backToStart = () => {
+    setViewMode('start');
+    setReadingStory(null);
   };
 
   // 重试
   const retryLastAction = async () => {
-    await processGameStep(gameState.currentSentence, gameState.history);
+    await processGameStep(gameState.currentPage.words);
   };
 
   // 选择单词
   const handleOptionClick = async (option: WordOption) => {
-    const newSentence = [...gameState.currentSentence, option];
+    const newWords = [...gameState.currentPage.words, option];
     
     // 累加播放：读出从头开始的完整句子，增强记忆
-    const fullText = newSentence.map(w => w.word).join(' ');
+    const fullText = newWords.map(w => w.word).join(' ');
     speechService.speak(fullText, "en-US");
-    
-    setGameState(prev => ({
-      ...prev,
-      currentSentence: newSentence,
-      nextOptions: [],
-    }));
 
-    await processGameStep(newSentence, gameState.history);
+    await processGameStep(newWords);
   };
 
   // 播放完整句子
@@ -151,68 +278,144 @@ const App: React.FC = () => {
       speechService.cancel();
       setIsPlayingFullSentence(false);
     } else {
-      const text = gameState.currentSentence.map(w => w.word).join(' ');
+      const text = gameState.currentPage.words.map(w => w.word).join(' ');
       setIsPlayingFullSentence(true);
       speechService.speak(text, "en-US");
     }
   };
 
-  // 继续故事
-  const continueStory = async () => {
-    const completedSentenceText = gameState.currentSentence.map(w => w.word).join(' ');
-    const newPage: StoryPage = {
-      text: completedSentenceText,
-      image: storyImage || null,
-      translation: gameState.englishTranslation
-    };
-    const newHistory = [...gameState.history, newPage];
+  // 播放完成句子的英文
+  const playCompletedSentence = () => {
+    const translation = gameState.currentPage.translation;
+    if (translation) {
+      speechService.speak(translation, "en-US");
+    }
+  };
 
+  // 继续下一页（自动保存到 Story）
+  const continueStory = async () => {
+    if (!gameState.currentStoryId) {
+      console.error('No current story!');
+      return;
+    }
+    
+    const currentPage = gameState.currentPage;
+    const existingStory = getCurrentStory();
+    
+    // 创建新的完成页
+    const completedPage: StoryPage = {
+      id: (existingStory?.pages.length || 0) + 1,
+      sentence: currentPage.words.map(w => w.word).join(' '),
+      words: currentPage.words,
+      illustration: gameState.ui.generatedImage,
+      scene: currentPage.scene,
+      translation: currentPage.translation,
+      timestamp: Date.now()
+    };
+
+    // 如果故事还不存在（第一页），创建新故事
+    if (!existingStory) {
+      const newStory: Story = {
+        id: gameState.currentStoryId,
+        title: await generateStoryTitle([completedPage]), // 自动生成标题
+        cover: generateStoryCover([completedPage]),
+        pages: [completedPage],
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      addStory(newStory);
+    } else {
+      // 更新现有故事
+      const updatedPages = [...existingStory.pages, completedPage];
+      updateStory(existingStory.id, {
+        pages: updatedPages,
+        cover: generateStoryCover(updatedPages),
+        title: await generateStoryTitle(updatedPages), // 随着内容增加，更新标题
+        updatedAt: Date.now()
+      });
+    }
+
+    // 清空当前页状态，开始新页
     setGameState(prev => ({
       ...prev,
-      history: newHistory,
-      currentSentence: [],
-      isComplete: false,
-      aiComment: "Thinking...",
-      nextOptions: [],
-      englishTranslation: ""
+      currentPage: {
+        words: [],
+        scene: prev.currentPage.scene,
+        isComplete: false
+      },
+      ai: {
+        comment: "Thinking...",
+        nextOptions: [],
+        phase: 'building'
+      },
+      ui: {
+        isGeneratingImage: false,
+        generatedImage: null,
+        loading: false,
+        error: null
+      }
     }));
-    setStoryImage(null);
 
-    await processGameStep([], newHistory);
+    // 请求下一页的开始
+    await processGameStep([]);
+  };
+  
+  // 返回故事库（会自动保存当前进度）
+  const backToLibrary = () => {
+    // 清空当前创作会话
+    setGameState(prev => ({
+      ...prev,
+      currentStoryId: null
+    }));
+    setViewMode('library');
   };
 
   // 朗读整个故事
   const playWholeStory = () => {
-    const history = gameState.history.map(p => p.text).join('. ');
-    speechService.speak(history, "en-US");
-  };
-
-  // 播放完成句子的英文
-  const playCompletedSentence = () => {
-    if (gameState.englishTranslation) {
-      speechService.speak(gameState.englishTranslation, "en-US");
+    const story = getCurrentStory();
+    if (story && story.pages.length > 0) {
+      const fullStory = story.pages.map(p => p.sentence).join('. ');
+      speechService.speak(fullStory, "en-US");
     }
   };
 
-  // 完成时生成图片
+  // ============================================
+  // 副作用 - 句子完成时生成图片
+  // ============================================
   useEffect(() => {
-    if (gameState.isComplete) {
-      const text = gameState.currentSentence.map(w => w.word).join(' ');
+    if (gameState.ai.phase === 'generating' && !gameState.ui.isGeneratingImage && !gameState.ui.generatedImage) {
+      const text = gameState.currentPage.words.map(w => w.word).join(' ');
+      
+      // 播放完整句子
       speechService.speak(text, "en-US");
       
-      const generateAndAdvance = async () => {
-        setIsGeneratingImage(true);
-        const img = await generateStoryImage(text, gameState.scene.type);
-        setStoryImage(img);
-        setIsGeneratingImage(false);
+      // 生成图片
+      const generateImage = async () => {
+        setGameState(prev => ({
+          ...prev,
+          ui: { ...prev.ui, isGeneratingImage: true },
+          ai: { ...prev.ai, comment: "太棒了！让我画一幅画...🎨" }
+        }));
+        
+        const img = await generateStoryImage(text, gameState.currentPage.scene.type);
+        
+        setGameState(prev => ({
+          ...prev,
+          ui: { ...prev.ui, isGeneratingImage: false, generatedImage: img },
+          ai: { ...prev.ai, comment: "画好啦！你创作了一个精彩的句子！🎉", phase: 'completed' }
+        }));
       };
 
-      generateAndAdvance();
+      generateImage();
     }
-  }, [gameState.isComplete]);
+  }, [gameState.ai.phase]);
 
+  // ============================================
+  // 路由渲染
+  // ============================================
+  
   // 开始屏幕
-  if (!started) {
+  if (viewMode === 'start') {
     return (
       <div className="min-h-screen bg-sky-50 flex items-center justify-center p-6 md:p-8 relative overflow-hidden">
         <div className="blob bg-green-300 w-64 h-64 md:w-96 md:h-96 rounded-full top-0 left-0 mix-blend-multiply blur-3xl opacity-50"></div>
@@ -227,11 +430,52 @@ const App: React.FC = () => {
             Listen, Speak, and Play!<br/>
             <span className="text-sm md:text-base text-slate-400 mt-2 block">Parent-Child English Adventure</span>
           </p>
-          <Button onClick={startGame} size="lg" className="w-full text-xl md:text-2xl py-6 md:py-8 rounded-2xl md:rounded-3xl shadow-lg bg-green-500 hover:bg-green-600 active:scale-95 transition-all">
-            Start Adventure! 🚀
-          </Button>
+          
+          <div className="space-y-4">
+            <Button 
+              onClick={startGame} 
+              size="lg" 
+              className="w-full text-xl md:text-2xl py-6 md:py-8 rounded-2xl md:rounded-3xl shadow-lg bg-green-500 hover:bg-green-600 active:scale-95 transition-all"
+            >
+              Start Adventure! 🚀
+            </Button>
+            
+            <Button
+              onClick={openLibrary}
+              size="lg"
+              className="w-full text-xl md:text-2xl py-6 md:py-8 rounded-2xl md:rounded-3xl shadow-lg bg-purple-500 hover:bg-purple-600 active:scale-95 transition-all"
+            >
+              📚 我的绘本书架
+            </Button>
+          </div>
         </div>
       </div>
+    );
+  }
+  
+  // 绘本库
+  if (viewMode === 'library') {
+    return (
+      <StoryLibrary 
+        onBack={backToStart}
+        onOpenStory={openReader}
+        onContinueStory={continueCreatingStory}
+        onCreateNew={startGame}
+      />
+    );
+  }
+  
+  // 阅读器
+  if (viewMode === 'reader' && readingStory) {
+    return (
+      <StoryReader 
+        story={readingStory}
+        onClose={() => {
+          setReadingStory(null);
+          setViewMode('library');
+        }}
+        onContinueEdit={continueCreatingStory}
+      />
     );
   }
 
@@ -240,7 +484,7 @@ const App: React.FC = () => {
     <div className={clsx("min-h-screen flex flex-col transition-colors duration-1000", themeClass)}>
       
       {/* 错误弹窗 */}
-      {hasError && (
+      {gameState.ui.error && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-[2rem] p-8 max-w-md w-full text-center shadow-2xl animate-pop-in border-4 border-red-100">
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -277,43 +521,61 @@ const App: React.FC = () => {
         
         {/* 顶部栏 */}
         <GameHeader 
-          scene={gameState.scene}
-          historyLength={gameState.history.length}
+          scene={gameState.currentPage.scene}
+          historyLength={getCompletedPages().length}
           onReadStory={playWholeStory}
+          onOpenLibrary={backToLibrary}
         />
 
         {/* 小恐龙伙伴区域 */}
         <DinoCompanion 
-          comment={gameState.aiComment}
-          isLoading={loading}
-          isGeneratingImage={isGeneratingImage}
+          comment={gameState.ai.comment}
+          isLoading={gameState.ui.loading}
+          isGeneratingImage={gameState.ui.isGeneratingImage}
           isDinoSpeaking={isDinoSpeaking}
-          onSpeak={() => speechService.speak(gameState.aiComment, "zh-CN")}
+          onSpeak={() => speechService.speak(gameState.ai.comment, "zh-CN")}
         />
 
-        {/* 句子显示区域 */}
-        <SentenceDisplay 
-          words={gameState.currentSentence}
-          isComplete={gameState.isComplete}
-          isLoading={loading}
-          isPlayingFullSentence={isPlayingFullSentence}
-          onPlaySentence={handlePlayFullSentence}
-        />
+        {/* 主内容区域 - 根据是否有已完成页面调整布局 */}
+        <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
+          
+          {/* 左侧：已完成页面查看器（有页面时显示） */}
+          {getCompletedPages().length > 0 && (
+            <div className="flex-1 min-h-[300px] md:min-h-0">
+              <CompletedPagesViewer 
+                pages={getCompletedPages()}
+                className="h-full"
+              />
+            </div>
+          )}
+          
+          {/* 右侧：当前创作区域 */}
+          <div className={`flex-1 flex flex-col ${getCompletedPages().length > 0 ? 'md:max-w-xl' : ''}`}>
+            {/* 句子显示区域 */}
+            <SentenceDisplay 
+              words={gameState.currentPage.words}
+              isComplete={gameState.currentPage.isComplete}
+              isLoading={gameState.ui.loading}
+              isPlayingFullSentence={isPlayingFullSentence}
+              onPlaySentence={handlePlayFullSentence}
+            />
 
-        {/* 交互区域 */}
-        <GameOptions 
-          isComplete={gameState.isComplete}
-          isGeneratingImage={isGeneratingImage}
-          storyImage={storyImage}
-          englishTranslation={gameState.englishTranslation}
-          options={gameState.nextOptions}
-          loading={loading}
-          highlightedWord={highlightedWord}
-          onOptionClick={handleOptionClick}
-          onContinue={continueStory}
-          onImageClick={() => storyImage && setImagePreview(storyImage)}
-          onPlaySentence={playCompletedSentence}
-        />
+            {/* 交互区域 */}
+            <GameOptions 
+              isComplete={gameState.currentPage.isComplete}
+              isGeneratingImage={gameState.ui.isGeneratingImage}
+              storyImage={gameState.ui.generatedImage}
+              englishTranslation={gameState.currentPage.translation || ""}
+              options={gameState.ai.nextOptions}
+              loading={gameState.ui.loading}
+              highlightedWord={highlightedWord}
+              onOptionClick={handleOptionClick}
+              onContinue={continueStory}
+              onImageClick={() => gameState.ui.generatedImage && setImagePreview(gameState.ui.generatedImage)}
+              onPlaySentence={playCompletedSentence}
+            />
+          </div>
+        </div>
 
       </div>
 

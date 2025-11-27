@@ -38,11 +38,21 @@ export const GameOptions: React.FC<GameOptionsProps> = ({
         <div className="w-full bg-orange-100/90 backdrop-blur rounded-[2rem] p-4 md:p-6 flex flex-col items-center justify-center text-center animate-fade-in border-4 border-white shadow-lg relative overflow-hidden">
           
           {isGeneratingImage ? (
-            <div className="flex flex-col items-center justify-center py-4 md:py-8">
-              <span className="text-4xl md:text-6xl mb-4 animate-bounce">🖌️</span>
-              <p className="text-orange-500 font-bold text-lg md:text-xl animate-pulse">
-                Creating masterpiece...
-              </p>
+            <div className="w-full h-full flex flex-col md:flex-row items-center gap-4 md:gap-6 py-4">
+              {/* 加载动画 */}
+              <div className="w-32 h-32 sm:w-48 sm:h-48 md:w-64 md:h-64 rounded-2xl bg-orange-200/50 animate-pulse flex items-center justify-center shrink-0 border-4 border-white shadow-lg">
+                <span className="text-6xl md:text-8xl animate-bounce">🖌️</span>
+              </div>
+              {/* 保留句子文案 */}
+              <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left">
+                <div className="flex items-center gap-2 text-orange-600 mb-2">
+                  <Star className="w-5 h-5 md:w-6 md:h-6 fill-orange-500 animate-pulse" />
+                  <h2 className="text-xl md:text-2xl font-black">Creating your story...</h2>
+                </div>
+                <p className="text-slate-700 text-lg md:text-xl font-bold leading-snug">
+                  "{englishTranslation}"
+                </p>
+              </div>
             </div>
           ) : (
             <div className="w-full h-full flex flex-col md:flex-row items-center gap-4 md:gap-6">
