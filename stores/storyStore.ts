@@ -1,10 +1,11 @@
 /**
  * 故事库 Store
- * 使用 Zustand 管理故事集合
+ * 使用 Zustand + IndexedDB 管理故事集合
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { indexedDBStorage } from './indexedDBStorage';
 import type { Story } from '../types';
 
 interface StoryStoreState {
@@ -42,20 +43,9 @@ export const useStoryStore = create<StoryStoreState>()(
     }),
     {
       name: 'dino-story-storage',
-      // 自定义存储策略：过滤掉图片数据，只保存文本
-      partialize: (state) => ({
-        stories: state.stories.map(story => ({
-          ...story,
-          pages: story.pages.map(page => ({
-            ...page,
-            illustration: undefined // 不保存图片到 localStorage
-          })),
-          cover: {
-            ...story.cover,
-            previewImages: [] // 不保存封面图片
-          }
-        }))
-      }),
+      // 使用 IndexedDB 存储（支持大容量，可以保存图片）
+      storage: createJSONStorage(() => indexedDBStorage),
+      // 不再需要 partialize，图片可以直接保存！
     }
   )
 );
