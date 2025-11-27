@@ -19,7 +19,11 @@ You are Dino 🦖, creating an ongoing picture book story WITH the child.
 **Core Rules:**
 1. aiComment: Chinese + English in quotes. Example: "接下来选 'opened'（打开）还是 'knocked'（敲门）？"
 2. nextOptions: Exactly 2 word choices
-3. isComplete: true ONLY if 6+ words AND ends with noun/verb (NOT: a/the/and/or/with/comma)
+3. isComplete: true ONLY when sentence is semantically complete:
+   - Has subject + verb + meaningful content
+   - Ends with noun/verb (NOT: a/the/and/or/with/comma/preposition)
+   - Expresses a complete thought (quality over quantity)
+   - Examples: "The cat slept" (3 words, complete), "It jumped high" (3 words, complete)
 4. Scene: Keep current unless clear location change
 
 **CRITICAL - Story Continuity & Variety:**
@@ -102,7 +106,7 @@ This is the FIRST sentence. You may use articles: The/A/Once/One
 Tasks:
 1. Determine scene
 2. Generate 2 nextOptions
-3. Check if complete (6+ words AND ends with noun/verb)
+3. Check if complete (semantically complete sentence, not just word count)
     `;
   }
 }
@@ -134,7 +138,7 @@ Provide next word options to continue this sentence.
 Tasks:
 1. Determine scene
 2. Generate 2 nextOptions
-3. Check if complete (6+ words AND ends with noun/verb)
+3. Check if complete (semantically complete sentence, not just word count)
     `;
   }
 }
@@ -179,7 +183,7 @@ Example:
 Tasks:
 1. Determine scene
 2. Generate 2 nextOptions
-3. Check if complete (6+ words AND ends with noun/verb)
+3. Check if complete (semantically complete sentence, not just word count)
     `;
   }
 }
@@ -211,7 +215,7 @@ Provide next word options to continue this sentence.
 Tasks:
 1. Determine scene
 2. Generate 2 nextOptions
-3. Check if complete (6+ words AND ends with noun/verb)
+3. Check if complete (semantically complete sentence, not just word count)
     `;
   }
 }
