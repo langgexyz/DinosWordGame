@@ -129,8 +129,11 @@ const App: React.FC = () => {
 
   // 选择单词
   const handleOptionClick = async (option: WordOption) => {
-    speechService.speak(option.word, "en-US");
     const newSentence = [...gameState.currentSentence, option];
+    
+    // 累加播放：读出从头开始的完整句子，增强记忆
+    const fullText = newSentence.map(w => w.word).join(' ');
+    speechService.speak(fullText, "en-US");
     
     setGameState(prev => ({
       ...prev,
