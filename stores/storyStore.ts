@@ -42,6 +42,20 @@ export const useStoryStore = create<StoryStoreState>()(
     }),
     {
       name: 'dino-story-storage',
+      // 自定义存储策略：过滤掉图片数据，只保存文本
+      partialize: (state) => ({
+        stories: state.stories.map(story => ({
+          ...story,
+          pages: story.pages.map(page => ({
+            ...page,
+            illustration: undefined // 不保存图片到 localStorage
+          })),
+          cover: {
+            ...story.cover,
+            previewImages: [] // 不保存封面图片
+          }
+        }))
+      }),
     }
   )
 );
