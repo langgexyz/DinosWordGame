@@ -62,13 +62,19 @@ interface StateContext {
   lastSentence: string;
 }
 
+// 用户动作类型
+enum UserAction {
+  ADD_WORD = 'ADD_WORD',           // 添加单词
+  COMPLETE_SENTENCE = 'COMPLETE_SENTENCE' // 完成句子（点击Next）
+}
+
 // Prompt 策略接口
 interface PromptStrategy {
   readonly stateName: StoryCreationState;
   buildContext(ctx: StateContext): string;
   buildGuidance(ctx: StateContext): string;
-  // 状态转换：根据用户操作决定下一个状态
-  nextState(ctx: StateContext, wordAdded: boolean): StoryCreationState;
+  // 状态转换：根据用户动作返回下一个状态
+  nextState(action: UserAction): StoryCreationState;
 }
 
 // 策略1: 新故事的第一句开始
@@ -83,8 +89,15 @@ class FirstSentenceStartStrategy implements PromptStrategy {
     return "This is the FIRST sentence. You may use articles: The/A/Once/One";
   }
   
-  nextState(ctx: StateContext, wordAdded: boolean): StoryCreationState {
-    return wordAdded ? StoryCreationState.FIRST_SENTENCE_BUILDING : this.stateName;
+  nextState(action: UserAction): StoryCreationState {
+    switch (action) {
+      case UserAction.ADD_WORD:
+        return StoryCreationState.FIRST_SENTENCE_BUILDING;
+      case UserAction.COMPLETE_SENTENCE:
+        return this.stateName; // 不应该发生，需要先添加单词
+      default:
+        return this.stateName;
+    }
   }
 }
 
@@ -100,9 +113,15 @@ class FirstSentenceBuildingStrategy implements PromptStrategy {
     return "Provide next word options to continue this sentence.";
   }
   
-  nextState(ctx: StateContext, wordAdded: boolean): StoryCreationState {
-    // 句子完成后，点击Next，下一个状态是开始新句子
-    return this.stateName; // 持续构建中
+  nextState(action: UserAction): StoryCreationState {
+    switch (action) {
+      case UserAction.ADD_WORD:
+        return StoryCreationState.FIRST_SENTENCE_BUILDING; // 继续构建
+      case UserAction.COMPLETE_SENTENCE:
+        return StoryCreationState.NEW_SENTENCE_START; // 完成后开始新句子
+      default:
+        return this.stateName;
+    }
   }
 }
 
@@ -135,8 +154,15 @@ class NewSentenceStartStrategy implements PromptStrategy {
   - After "They played together" → Options: "Next," vs "Later,"`;
   }
   
-  nextState(ctx: StateContext, wordAdded: boolean): StoryCreationState {
-    return wordAdded ? StoryCreationState.SENTENCE_BUILDING : this.stateName;
+  nextState(action: UserAction): StoryCreationState {
+    switch (action) {
+      case UserAction.ADD_WORD:
+        return StoryCreationState.SENTENCE_BUILDING; // 开始构建句子
+      case UserAction.COMPLETE_SENTENCE:
+        return this.stateName; // 不应该发生，需要先添加单词
+      default:
+        return this.stateName;
+    }
   }
 }
 
@@ -157,8 +183,15 @@ class SentenceBuildingStrategy implements PromptStrategy {
     return "Provide next word options to continue this sentence.";
   }
   
-  nextState(ctx: StateContext, wordAdded: boolean): StoryCreationState {
-    return this.stateName; // 持续构建中
+  nextState(action: UserAction): StoryCreationState {
+    switch (action) {
+      case UserAction.ADD_WORD:
+        return StoryCreationState.SENTENCE_BUILDING; // 继续构建
+      case UserAction.COMPLETE_SENTENCE:
+        return StoryCreationState.NEW_SENTENCE_START; // 完成后开始新句子
+      default:
+        return this.stateName;
+    }
   }
 }
 
