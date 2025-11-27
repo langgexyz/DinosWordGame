@@ -66,6 +66,7 @@ const App: React.FC = () => {
   const [isPlayingFullSentence, setIsPlayingFullSentence] = useState(false);
   const [isDinoSpeaking, setIsDinoSpeaking] = useState(false);
   const [highlightedWord, setHighlightedWord] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // 创建语音服务实例
   const speechService = useMemo(() => createSpeechService({}, {
@@ -186,6 +187,13 @@ const App: React.FC = () => {
     speechService.speak(history, "en-US");
   };
 
+  // 播放完成句子的英文
+  const playCompletedSentence = () => {
+    if (gameState.englishTranslation) {
+      speechService.speak(gameState.englishTranslation, "en-US");
+    }
+  };
+
   // 完成时生成图片
   useEffect(() => {
     if (gameState.isComplete) {
@@ -303,9 +311,33 @@ const App: React.FC = () => {
           highlightedWord={highlightedWord}
           onOptionClick={handleOptionClick}
           onContinue={continueStory}
+          onImageClick={() => storyImage && setImagePreview(storyImage)}
+          onPlaySentence={playCompletedSentence}
         />
 
       </div>
+
+      {/* 图片预览弹窗 */}
+      {imagePreview && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setImagePreview(null)}
+        >
+          <div className="relative max-w-4xl w-full max-h-[90vh] animate-pop-in">
+            <img 
+              src={imagePreview} 
+              alt="Story preview" 
+              className="w-full h-full object-contain rounded-2xl shadow-2xl"
+            />
+            <button 
+              onClick={() => setImagePreview(null)}
+              className="absolute top-4 right-4 w-12 h-12 bg-white/90 hover:bg-white rounded-full flex items-center justify-center text-2xl font-bold text-slate-700 shadow-lg transition-all hover:scale-110 active:scale-95"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
