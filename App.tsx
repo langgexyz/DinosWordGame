@@ -389,7 +389,7 @@ const App: React.FC = () => {
       // 播放完整句子
       speechService.speak(text, "en-US");
       
-      // 生成图片
+      // 生成图片（传入故事历史以保持视觉延续性）
       const generateImage = async () => {
         setGameState(prev => ({
           ...prev,
@@ -397,7 +397,9 @@ const App: React.FC = () => {
           ai: { ...prev.ai, comment: "太棒了！让我画一幅画...🎨" }
         }));
         
-        const img = await generateStoryImage(text, gameState.currentPage.scene.type);
+        // 获取已完成的页面作为历史上下文
+        const completedPages = getCompletedPages();
+        const img = await generateStoryImage(text, gameState.currentPage.scene.type, completedPages);
         
         setGameState(prev => ({
           ...prev,

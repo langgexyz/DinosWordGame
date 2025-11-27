@@ -341,13 +341,35 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
   };
 };
 
-export const generateStoryImage = async (sentence: string, sceneType: string): Promise<string | null> => {
+export const generateStoryImage = async (
+  sentence: string, 
+  sceneType: string, 
+  storyHistory: StoryPage[] = []
+): Promise<string | null> => {
   try {
+    // 构建故事上下文（提供给图片生成的延续性）
+    let storyContext = '';
+    if (storyHistory.length > 0) {
+      // 获取最近1-2句话作为视觉延续参考
+      const recentPages = storyHistory.slice(-2);
+      const previousScenes = recentPages.map(p => p.sentence).join('. ');
+      storyContext = `
+Story context (for visual continuity): "${previousScenes}"
+
+IMPORTANT: 
+- Maintain visual consistency with previous scene
+- Keep the same main character(s) appearance
+- Continue the story visually (don't restart)
+`;
+    }
+    
     const prompt = `
       Create a cute, colorful, flat vector art style illustration for a children's storybook.
       
+      ${storyContext}
+      
       Scene Setting: ${sceneType}
-      Action/Subject: ${sentence}
+      Current Action: ${sentence}
       
       Style parameters:
       - Bright, happy colors
@@ -355,6 +377,7 @@ export const generateStoryImage = async (sentence: string, sceneType: string): P
       - White or soft pastel background
       - No text inside the image
       - Aspect Ratio 1:1
+      - Character consistency: If there's a dragon/character in previous scenes, keep the same design
     `;
 
     const response = await ai.models.generateContent({
