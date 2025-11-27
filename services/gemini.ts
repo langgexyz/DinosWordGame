@@ -43,51 +43,74 @@ Examples:
 `;
 
 // ============================================
-// Prompt 策略接口
+// 状态机 + 策略模式
 // ============================================
 
-interface PromptContext {
+// 游戏状态枚举
+enum StoryCreationState {
+  FIRST_SENTENCE_START = 'FIRST_SENTENCE_START',      // 新故事，第一句开始
+  FIRST_SENTENCE_BUILDING = 'FIRST_SENTENCE_BUILDING', // 新故事，第一句构建中
+  NEW_SENTENCE_START = 'NEW_SENTENCE_START',          // 续写故事，新句子开始
+  SENTENCE_BUILDING = 'SENTENCE_BUILDING'              // 续写故事，句子构建中
+}
+
+// 状态上下文
+interface StateContext {
   currentWords: WordOption[];
   history: StoryPage[];
   currentSentenceText: string;
   lastSentence: string;
 }
 
+// Prompt 策略接口
 interface PromptStrategy {
-  buildContext(ctx: PromptContext): string;
-  buildGuidance(ctx: PromptContext): string;
+  readonly stateName: StoryCreationState;
+  buildContext(ctx: StateContext): string;
+  buildGuidance(ctx: StateContext): string;
+  // 状态转换：根据用户操作决定下一个状态
+  nextState(ctx: StateContext, wordAdded: boolean): StoryCreationState;
 }
 
-// 策略1: 新故事的第一句
-class FirstSentenceStrategy implements PromptStrategy {
-  buildContext(ctx: PromptContext): string {
+// 策略1: 新故事的第一句开始
+class FirstSentenceStartStrategy implements PromptStrategy {
+  readonly stateName = StoryCreationState.FIRST_SENTENCE_START;
+  
+  buildContext(ctx: StateContext): string {
     return "Starting a brand new story.";
   }
   
-  buildGuidance(ctx: PromptContext): string {
+  buildGuidance(ctx: StateContext): string {
     return "This is the FIRST sentence. You may use articles: The/A/Once/One";
+  }
+  
+  nextState(ctx: StateContext, wordAdded: boolean): StoryCreationState {
+    return wordAdded ? StoryCreationState.FIRST_SENTENCE_BUILDING : this.stateName;
   }
 }
 
-// 策略2: 继续现有句子（添加单词）
-class ContinueSentenceStrategy implements PromptStrategy {
-  buildContext(ctx: PromptContext): string {
-    if (ctx.history.length <= 3) {
-      return `Story so far: ${ctx.history.map(h => `"${h.sentence}"`).join('. ')}.`;
-    } else {
-      const recent = ctx.history.slice(-3);
-      return `Recent story: ${recent.map(h => `"${h.sentence}"`).join('. ')}.`;
-    }
+// 策略2: 第一句构建中
+class FirstSentenceBuildingStrategy implements PromptStrategy {
+  readonly stateName = StoryCreationState.FIRST_SENTENCE_BUILDING;
+  
+  buildContext(ctx: StateContext): string {
+    return "Starting a brand new story.";
   }
   
-  buildGuidance(ctx: PromptContext): string {
+  buildGuidance(ctx: StateContext): string {
     return "Provide next word options to continue this sentence.";
+  }
+  
+  nextState(ctx: StateContext, wordAdded: boolean): StoryCreationState {
+    // 句子完成后，点击Next，下一个状态是开始新句子
+    return this.stateName; // 持续构建中
   }
 }
 
 // 策略3: 开始新句子（故事延续）
-class NewSentenceContinuationStrategy implements PromptStrategy {
-  buildContext(ctx: PromptContext): string {
+class NewSentenceStartStrategy implements PromptStrategy {
+  readonly stateName = StoryCreationState.NEW_SENTENCE_START;
+  
+  buildContext(ctx: StateContext): string {
     if (ctx.history.length <= 3) {
       return `Story so far: ${ctx.history.map(h => `"${h.sentence}"`).join('. ')}.`;
     } else {
@@ -96,7 +119,7 @@ class NewSentenceContinuationStrategy implements PromptStrategy {
     }
   }
   
-  buildGuidance(ctx: PromptContext): string {
+  buildGuidance(ctx: StateContext): string {
     return `IMPORTANT: This is a NEW sentence continuing from "${ctx.lastSentence}".
   
   MUST follow this strict priority:
@@ -111,23 +134,66 @@ class NewSentenceContinuationStrategy implements PromptStrategy {
   - After "A girl opened the door" → Options: "She" vs "Then,"
   - After "They played together" → Options: "Next," vs "Later,"`;
   }
+  
+  nextState(ctx: StateContext, wordAdded: boolean): StoryCreationState {
+    return wordAdded ? StoryCreationState.SENTENCE_BUILDING : this.stateName;
+  }
 }
 
-// Prompt 策略选择器
-class PromptStrategySelector {
-  static select(currentWords: WordOption[], history: StoryPage[]): PromptStrategy {
-    const isStartOfSentence = currentWords.length === 0;
-    
-    if (history.length === 0 && isStartOfSentence) {
-      // 新故事的第一句
-      return new FirstSentenceStrategy();
-    } else if (isStartOfSentence) {
-      // 有历史，开始新句子
-      return new NewSentenceContinuationStrategy();
+// 策略4: 句子构建中（续写故事）
+class SentenceBuildingStrategy implements PromptStrategy {
+  readonly stateName = StoryCreationState.SENTENCE_BUILDING;
+  
+  buildContext(ctx: StateContext): string {
+    if (ctx.history.length <= 3) {
+      return `Story so far: ${ctx.history.map(h => `"${h.sentence}"`).join('. ')}.`;
     } else {
-      // 继续当前句子
-      return new ContinueSentenceStrategy();
+      const recent = ctx.history.slice(-3);
+      return `Recent story: ${recent.map(h => `"${h.sentence}"`).join('. ')}.`;
     }
+  }
+  
+  buildGuidance(ctx: StateContext): string {
+    return "Provide next word options to continue this sentence.";
+  }
+  
+  nextState(ctx: StateContext, wordAdded: boolean): StoryCreationState {
+    return this.stateName; // 持续构建中
+  }
+}
+
+// 状态机管理器
+class StoryStateMachine {
+  private static strategies: Map<StoryCreationState, PromptStrategy> = new Map<StoryCreationState, PromptStrategy>([
+    [StoryCreationState.FIRST_SENTENCE_START, new FirstSentenceStartStrategy()],
+    [StoryCreationState.FIRST_SENTENCE_BUILDING, new FirstSentenceBuildingStrategy()],
+    [StoryCreationState.NEW_SENTENCE_START, new NewSentenceStartStrategy()],
+    [StoryCreationState.SENTENCE_BUILDING, new SentenceBuildingStrategy()]
+  ]);
+  
+  // 根据当前上下文确定状态
+  static determineState(ctx: StateContext): StoryCreationState {
+    const hasWords = ctx.currentWords.length > 0;
+    const hasHistory = ctx.history.length > 0;
+    
+    if (!hasHistory && !hasWords) {
+      return StoryCreationState.FIRST_SENTENCE_START;
+    } else if (!hasHistory && hasWords) {
+      return StoryCreationState.FIRST_SENTENCE_BUILDING;
+    } else if (hasHistory && !hasWords) {
+      return StoryCreationState.NEW_SENTENCE_START;
+    } else {
+      return StoryCreationState.SENTENCE_BUILDING;
+    }
+  }
+  
+  // 获取当前状态的策略
+  static getStrategy(state: StoryCreationState): PromptStrategy {
+    const strategy = this.strategies.get(state);
+    if (!strategy) {
+      throw new Error(`Unknown state: ${state}`);
+    }
+    return strategy;
   }
 }
 
@@ -139,18 +205,21 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
   const currentSentenceText = currentWords.map(w => w.word).join(" ");
   const lastSentence = history.length > 0 ? history[history.length - 1].sentence : "";
   
-  // 创建上下文对象
-  const ctx: PromptContext = {
+  // 创建状态上下文
+  const ctx: StateContext = {
     currentWords,
     history,
     currentSentenceText,
     lastSentence
   };
   
-  // 选择策略
-  const strategy = PromptStrategySelector.select(currentWords, history);
+  // 状态机：确定当前状态
+  const currentState = StoryStateMachine.determineState(ctx);
   
-  // 构建 Prompt
+  // 获取当前状态的策略
+  const strategy = StoryStateMachine.getStrategy(currentState);
+  
+  // 使用策略构建 Prompt
   const contextPrompt = strategy.buildContext(ctx);
   const guidance = strategy.buildGuidance(ctx);
   
@@ -170,15 +239,16 @@ Tasks:
 
   // 打印给 AI 的完整上下文
   console.log('\n========== 📤 AI Request Context ==========');
-  console.log('Strategy:', strategy.constructor.name);
-  console.log('History Pages:', history.length);
+  console.log('🎯 Current State:', currentState);
+  console.log('📋 Strategy:', strategy.constructor.name);
+  console.log('📚 History Pages:', history.length);
   if (history.length > 0) {
     console.log('Full Story History:');
     history.forEach((page, idx) => {
       console.log(`  Page ${idx + 1}: "${page.sentence}"`);
     });
   }
-  console.log('Current Words:', currentSentenceText || '(empty)');
+  console.log('✍️  Current Words:', currentSentenceText || '(empty - starting new sentence)');
   console.log('\n--- Prompt to AI ---');
   console.log(prompt);
   console.log('==========================================\n');
