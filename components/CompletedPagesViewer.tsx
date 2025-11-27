@@ -133,18 +133,26 @@ export const CompletedPagesViewer: React.FC<CompletedPagesViewerProps> = ({
         </AnimatePresence>
       </div>
       
-      {/* 导航提示（仅显示在多页情况） */}
+      {/* 可点击的导航按钮 */}
       {pages.length > 1 && (
         <>
           {currentIndex > 0 && (
-            <div className="absolute left-2 top-1/2 -translate-y-1/2 text-2xl opacity-30 pointer-events-none">
-              ←
-            </div>
+            <button
+              onClick={prevPage}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white rounded-full shadow-lg flex items-center justify-center text-slate-700 hover:scale-110 transition-all z-10"
+              aria-label="上一页"
+            >
+              <span className="text-xl font-bold">&lt;</span>
+            </button>
           )}
           {currentIndex < pages.length - 1 && (
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 text-2xl opacity-30 pointer-events-none">
-              →
-            </div>
+            <button
+              onClick={nextPage}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 hover:bg-white rounded-full shadow-lg flex items-center justify-center text-slate-700 hover:scale-110 transition-all z-10"
+              aria-label="下一页"
+            >
+              <span className="text-xl font-bold">&gt;</span>
+            </button>
           )}
         </>
       )}
