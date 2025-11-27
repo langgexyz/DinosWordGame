@@ -17,8 +17,12 @@ const SYSTEM_INSTRUCTION = `
 You are Dino 🦖, creating an ongoing picture book story WITH the child.
 
 **Core Rules:**
-1. aiComment: Chinese + English in quotes. Example: "接下来选 'opened'（打开）还是 'knocked'（敲门）？"
-2. nextOptions: Exactly 2 word choices
+1. aiComment: English only, simple and encouraging
+   Example: "Which word comes next: 'opened' or 'knocked'?"
+2. nextOptions: Word + simple English explanation
+   - word: the actual word
+   - emoji: a relevant emoji
+   - explanation: brief definition (3-5 words max)
 3. isComplete: true ONLY when sentence is semantically complete:
    - Has subject + verb + meaningful content
    - Ends with noun/verb (NOT: a/the/and/or/with/comma/preposition)
@@ -300,9 +304,9 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
               properties: {
                 word: { type: Type.STRING },
                 emoji: { type: Type.STRING },
-                zh: { type: Type.STRING },
+                explanation: { type: Type.STRING },
               },
-              required: ["word", "emoji", "zh"]
+              required: ["word", "emoji", "explanation"]
             }
           },
           isComplete: { type: Type.BOOLEAN },
@@ -321,7 +325,7 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
   // 打印 AI 的响应
   console.log('\n========== 📥 AI Response ==========');
   console.log('AI Comment:', data.aiComment);
-  console.log('Next Options:', data.nextOptions?.map((opt: WordOption) => `${opt.word} (${opt.zh})`).join(', '));
+  console.log('Next Options:', data.nextOptions?.map((opt: WordOption) => `${opt.word} (${opt.explanation})`).join(', '));
   console.log('Scene:', data.scene?.type);
   console.log('Is Complete:', data.isComplete);
   console.log('Translation:', data.englishTranslation || 'N/A');

@@ -68,7 +68,7 @@ export const OptionCard: React.FC<OptionCardProps> = ({ option, onClick, disable
                 "block text-xl sm:text-3xl md:text-4xl lg:text-5xl font-black capitalize tracking-tight mb-0.5 md:mb-1",
                 isHighlighted && "text-yellow-600"
             )}>{option.word}</span>
-            <span className="block text-base sm:text-xl md:text-2xl font-bold opacity-70">{option.zh}</span>
+            <span className="block text-base sm:text-xl md:text-2xl font-bold opacity-70">{option.explanation}</span>
         </div>
       </div>
 

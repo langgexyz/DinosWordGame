@@ -3,7 +3,6 @@ import { GameState, WordOption, StoryPage, Scene, CreationPhase, Story } from '.
 import { fetchGameStep, generateStoryImage, generateStoryTitle, AIResponse } from './services/gemini';
 import { createSpeechService } from './services/speech';
 import { GameHeader } from './components/GameHeader';
-import { DinoCompanion } from './components/DinoCompanion';
 import { SentenceDisplay } from './components/SentenceDisplay';
 import { GameOptions } from './components/GameOptions';
 import { StoryLibrary } from './components/StoryLibrary/StoryLibrary';
@@ -284,6 +283,16 @@ const App: React.FC = () => {
     }
   };
 
+  const handlePlayDinoComment = () => {
+    if (isDinoSpeaking) {
+      speechService.cancel();
+      setIsDinoSpeaking(false);
+    } else {
+      setIsDinoSpeaking(true);
+      speechService.speak(gameState.ai.comment, "en-US");
+    }
+  };
+
   // 播放完成句子的英文
   const playCompletedSentence = () => {
     const translation = gameState.currentPage.translation;
@@ -529,15 +538,6 @@ const App: React.FC = () => {
           onOpenLibrary={backToLibrary}
         />
 
-        {/* 小恐龙伙伴区域 */}
-        <DinoCompanion 
-          comment={gameState.ai.comment}
-          isLoading={gameState.ui.loading}
-          isGeneratingImage={gameState.ui.isGeneratingImage}
-          isDinoSpeaking={isDinoSpeaking}
-          onSpeak={() => speechService.speak(gameState.ai.comment, "zh-CN")}
-        />
-
         {/* 主内容区域 - 根据是否有已完成页面调整布局 */}
         <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
           
@@ -575,6 +575,9 @@ const App: React.FC = () => {
               onContinue={continueStory}
               onImageClick={() => gameState.ui.generatedImage && setImagePreview(gameState.ui.generatedImage)}
               onPlaySentence={playCompletedSentence}
+              aiComment={gameState.ui.isGeneratingImage ? "Painting a picture for you! 🎨" : gameState.ai.comment}
+              isDinoSpeaking={isDinoSpeaking}
+              onPlayComment={handlePlayDinoComment}
             />
           </div>
         </div>

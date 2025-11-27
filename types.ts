@@ -5,7 +5,7 @@
 export interface WordOption {
   word: string;
   emoji: string;
-  zh: string;
+  explanation: string; // Simple English explanation (3-5 words)
   color?: string;
 }
 
