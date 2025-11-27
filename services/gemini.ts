@@ -348,36 +348,44 @@ export const generateStoryImage = async (
 ): Promise<string | null> => {
   try {
     // 构建故事上下文（提供给图片生成的延续性）
-    let storyContext = '';
+    let visualContinuityPrompt = '';
     if (storyHistory.length > 0) {
       // 获取最近1-2句话作为视觉延续参考
       const recentPages = storyHistory.slice(-2);
       const previousScenes = recentPages.map(p => p.sentence).join('. ');
-      storyContext = `
-Story context (for visual continuity): "${previousScenes}"
+      visualContinuityPrompt = `
+Previous story context: "${previousScenes}"
 
-IMPORTANT: 
-- Maintain visual consistency with previous scene
-- Keep the same main character(s) appearance
-- Continue the story visually (don't restart)
+VISUAL CONTINUITY RULES (CRITICAL):
+1. Character Consistency: If any character appeared before (person, animal, creature), keep EXACTLY the same:
+   - Same colors, same design, same style
+   - Same clothing/features if applicable
+2. Scene Transition: Smoothly continue from previous scene
+   - Don't restart the story visually
+   - Show natural progression
+3. Style Consistency: Match the art style of previous illustrations
+`;
+    } else {
+      visualContinuityPrompt = `
+This is the FIRST illustration of the story.
+Establish main character design that will be consistent throughout.
 `;
     }
     
     const prompt = `
-      Create a cute, colorful, flat vector art style illustration for a children's storybook.
-      
-      ${storyContext}
-      
-      Scene Setting: ${sceneType}
-      Current Action: ${sentence}
-      
-      Style parameters:
-      - Bright, happy colors
-      - Simple shapes, easy to understand for a 4-year-old
-      - White or soft pastel background
-      - No text inside the image
-      - Aspect Ratio 1:1
-      - Character consistency: If there's a dragon/character in previous scenes, keep the same design
+Create a cute, colorful, flat vector art style illustration for a children's storybook.
+
+${visualContinuityPrompt}
+
+Scene Setting: ${sceneType}
+Current Action/Text: ${sentence}
+
+Style Parameters:
+- Bright, happy colors
+- Simple shapes, easy for 4-year-olds to understand
+- White or soft pastel background
+- No text inside the image
+- Aspect Ratio 1:1
     `;
 
     const response = await ai.models.generateContent({
