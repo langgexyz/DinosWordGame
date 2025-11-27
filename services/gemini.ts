@@ -351,24 +351,60 @@ export const generateStoryImage = async (
   storyHistory: StoryPage[] = []
 ): Promise<string | null> => {
   try {
-    // 构建故事上下文（提供给图片生成的延续性）
+    // 构建多模态输入内容（文字 + 可能的参考图片）
+    const contentParts: any[] = [];
+    
+    // 构建文字提示词
     let visualContinuityPrompt = '';
+    
     if (storyHistory.length > 0) {
-      // 获取最近1-2句话作为视觉延续参考
-      const recentPages = storyHistory.slice(-2);
-      const previousScenes = recentPages.map(p => p.sentence).join('. ');
-      visualContinuityPrompt = `
+      // 获取最后一页的图片作为参考
+      const lastPage = storyHistory[storyHistory.length - 1];
+      const previousImage = lastPage.illustration;
+      
+      if (previousImage) {
+        // 如果有前一张图片，添加到输入中
+        // 从 base64 提取图片数据
+        const base64Match = previousImage.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (base64Match) {
+          const [, mimeType, data] = base64Match;
+          
+          contentParts.push({
+            inlineData: {
+              mimeType: `image/${mimeType}`,
+              data: data
+            }
+          });
+          
+          visualContinuityPrompt = `
+REFERENCE IMAGE PROVIDED ABOVE.
+
+CRITICAL - CHARACTER CONSISTENCY:
+- Look at the reference image carefully
+- Keep THE EXACT SAME character design:
+  * Same face, same hairstyle
+  * Same clothing style and colors
+  * Same body proportions
+  * Same art style
+- This is the SAME character in the next scene
+- Only the scene/action changes, NOT the character
+
+Previous scene: "${lastPage.sentence}"
+`;
+        }
+      } else {
+        // 没有图片时，用文字描述
+        const recentPages = storyHistory.slice(-2);
+        const previousScenes = recentPages.map(p => p.sentence).join('. ');
+        visualContinuityPrompt = `
 Previous story context: "${previousScenes}"
 
 VISUAL CONTINUITY RULES (CRITICAL):
-1. Character Consistency: If any character appeared before (person, animal, creature), keep EXACTLY the same:
-   - Same colors, same design, same style
-   - Same clothing/features if applicable
-2. Scene Transition: Smoothly continue from previous scene
-   - Don't restart the story visually
-   - Show natural progression
-3. Style Consistency: Match the art style of previous illustrations
+1. Character Consistency: Keep EXACTLY the same character from before
+2. Scene Transition: Natural progression
+3. Style Consistency: Match previous art style
 `;
+      }
     } else {
       visualContinuityPrompt = `
 This is the FIRST illustration of the story.
@@ -376,7 +412,8 @@ Establish main character design that will be consistent throughout.
 `;
     }
     
-    const prompt = `
+    // 添加文字提示词
+    const textPrompt = `
 Create a cute, colorful, flat vector art style illustration for a children's storybook.
 
 ${visualContinuityPrompt}
@@ -391,10 +428,14 @@ Style Parameters:
 - No text inside the image
 - Aspect Ratio 1:1
     `;
+    
+    contentParts.push({ text: textPrompt });
+
+    console.log(`🎨 Generating image with${storyHistory.length > 0 && storyHistory[storyHistory.length - 1].illustration ? ' reference image' : 'out reference image'}`);
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: prompt,
+      contents: contentParts,
     });
 
     // Iterate through parts to find the image

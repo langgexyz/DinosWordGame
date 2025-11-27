@@ -50,7 +50,7 @@ export const indexedDBStorage = {
   setItem: async (name: string, value: string): Promise<void> => {
     try {
       await db.kvStore.put({ key: name, value });
-      console.log(`✅ Saved to IndexedDB: ${name}, size: ${(value.length / 1024).toFixed(2)}KB`);
+      console.log(`Saved to IndexedDB: ${name}, size: ${(value.length / 1024).toFixed(2)}KB`);
     } catch (error) {
       console.error('IndexedDB setItem error:', error);
       throw error;
