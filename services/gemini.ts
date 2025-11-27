@@ -43,190 +43,197 @@ Examples:
 `;
 
 // ============================================
-// 状态机 + 策略模式
+// 状态模式 - 每个状态是独立的类实例
 // ============================================
 
-// 游戏状态枚举
-enum StoryCreationState {
-  FIRST_SENTENCE_START = 'FIRST_SENTENCE_START',      // 新故事，第一句开始
-  FIRST_SENTENCE_BUILDING = 'FIRST_SENTENCE_BUILDING', // 新故事，第一句构建中
-  NEW_SENTENCE_START = 'NEW_SENTENCE_START',          // 续写故事，新句子开始
-  SENTENCE_BUILDING = 'SENTENCE_BUILDING'              // 续写故事，句子构建中
-}
-
-// 状态上下文
-interface StateContext {
+// 输入数据（用户交互）
+interface PromptInput {
   currentWords: WordOption[];
   history: StoryPage[];
-  currentSentenceText: string;
-  lastSentence: string;
 }
 
-// 用户动作类型
-enum UserAction {
-  ADD_WORD = 'ADD_WORD',           // 添加单词
-  COMPLETE_SENTENCE = 'COMPLETE_SENTENCE' // 完成句子（点击Next）
-}
-
-// Prompt 策略接口
-interface PromptStrategy {
-  readonly stateName: StoryCreationState;
-  buildContext(ctx: StateContext): string;
-  buildGuidance(ctx: StateContext): string;
-  // 状态转换：根据用户动作返回下一个状态
-  nextState(action: UserAction): StoryCreationState;
-}
-
-// 策略1: 新故事的第一句开始
-class FirstSentenceStartStrategy implements PromptStrategy {
-  readonly stateName = StoryCreationState.FIRST_SENTENCE_START;
+// 抽象状态类
+abstract class StoryCreationState {
+  abstract readonly stateName: string;
   
-  buildContext(ctx: StateContext): string {
-    return "Starting a brand new story.";
-  }
+  // 核心方法：处理输入，返回新状态
+  abstract process(input: PromptInput): StoryCreationState;
   
-  buildGuidance(ctx: StateContext): string {
-    return "This is the FIRST sentence. You may use articles: The/A/Once/One";
-  }
+  // 生成 AI Prompt
+  abstract buildPrompt(input: PromptInput): string;
   
-  nextState(action: UserAction): StoryCreationState {
-    switch (action) {
-      case UserAction.ADD_WORD:
-        return StoryCreationState.FIRST_SENTENCE_BUILDING;
-      case UserAction.COMPLETE_SENTENCE:
-        return this.stateName; // 不应该发生，需要先添加单词
-      default:
-        return this.stateName;
-    }
-  }
-}
-
-// 策略2: 第一句构建中
-class FirstSentenceBuildingStrategy implements PromptStrategy {
-  readonly stateName = StoryCreationState.FIRST_SENTENCE_BUILDING;
-  
-  buildContext(ctx: StateContext): string {
-    return "Starting a brand new story.";
-  }
-  
-  buildGuidance(ctx: StateContext): string {
-    return "Provide next word options to continue this sentence.";
-  }
-  
-  nextState(action: UserAction): StoryCreationState {
-    switch (action) {
-      case UserAction.ADD_WORD:
-        return StoryCreationState.FIRST_SENTENCE_BUILDING; // 继续构建
-      case UserAction.COMPLETE_SENTENCE:
-        return StoryCreationState.NEW_SENTENCE_START; // 完成后开始新句子
-      default:
-        return this.stateName;
-    }
-  }
-}
-
-// 策略3: 开始新句子（故事延续）
-class NewSentenceStartStrategy implements PromptStrategy {
-  readonly stateName = StoryCreationState.NEW_SENTENCE_START;
-  
-  buildContext(ctx: StateContext): string {
-    if (ctx.history.length <= 3) {
-      return `Story so far: ${ctx.history.map(h => `"${h.sentence}"`).join('. ')}.`;
+  // 辅助方法：构建上下文
+  protected buildContext(history: StoryPage[]): string {
+    if (history.length === 0) {
+      return "Starting a brand new story.";
+    } else if (history.length <= 3) {
+      return `Story so far: ${history.map(h => `"${h.sentence}"`).join('. ')}.`;
     } else {
-      const recent = ctx.history.slice(-3);
+      const recent = history.slice(-3);
       return `Recent story: ${recent.map(h => `"${h.sentence}"`).join('. ')}.`;
     }
   }
+}
+
+// 状态1: 新故事第一句开始
+class FirstSentenceStartState extends StoryCreationState {
+  readonly stateName = 'FirstSentenceStart';
   
-  buildGuidance(ctx: StateContext): string {
-    return `IMPORTANT: This is a NEW sentence continuing from "${ctx.lastSentence}".
-  
-  MUST follow this strict priority:
-  1st choice - PRONOUN: If the last sentence has a clear subject (person/animal/thing), use: It, She, He, They
-  2nd choice - TIME/TRANSITION: If pronoun doesn't fit, use: Then,/Next,/Suddenly,/Later,/Soon,/Meanwhile,
-  3rd choice - ONLY if neither pronoun nor time word works: use a noun WITHOUT article (e.g., "Dragon" not "The dragon")
-  
-  FORBIDDEN: Never start with "The" or "A" when continuing a story!
-  
-  Example:
-  - After "The dragon flew fast" → Options: "It" vs "Suddenly,"
-  - After "A girl opened the door" → Options: "She" vs "Then,"
-  - After "They played together" → Options: "Next," vs "Later,"`;
+  process(input: PromptInput): StoryCreationState {
+    // 当添加了第一个单词，转换到构建状态
+    if (input.currentWords.length > 0) {
+      return new FirstSentenceBuildingState();
+    }
+    return this; // 保持当前状态
   }
   
-  nextState(action: UserAction): StoryCreationState {
-    switch (action) {
-      case UserAction.ADD_WORD:
-        return StoryCreationState.SENTENCE_BUILDING; // 开始构建句子
-      case UserAction.COMPLETE_SENTENCE:
-        return this.stateName; // 不应该发生，需要先添加单词
-      default:
-        return this.stateName;
-    }
+  buildPrompt(input: PromptInput): string {
+    const context = this.buildContext(input.history);
+    const currentText = input.currentWords.map(w => w.word).join(' ');
+    
+    return `
+${context}
+
+Current sentence being built: "${currentText}"
+Words count: ${input.currentWords.length}
+
+This is the FIRST sentence. You may use articles: The/A/Once/One
+
+Tasks:
+1. Determine scene
+2. Generate 2 nextOptions
+3. Check if complete (6+ words AND ends with noun/verb)
+    `;
   }
 }
 
-// 策略4: 句子构建中（续写故事）
-class SentenceBuildingStrategy implements PromptStrategy {
-  readonly stateName = StoryCreationState.SENTENCE_BUILDING;
+// 状态2: 第一句构建中
+class FirstSentenceBuildingState extends StoryCreationState {
+  readonly stateName = 'FirstSentenceBuilding';
   
-  buildContext(ctx: StateContext): string {
-    if (ctx.history.length <= 3) {
-      return `Story so far: ${ctx.history.map(h => `"${h.sentence}"`).join('. ')}.`;
-    } else {
-      const recent = ctx.history.slice(-3);
-      return `Recent story: ${recent.map(h => `"${h.sentence}"`).join('. ')}.`;
+  process(input: PromptInput): StoryCreationState {
+    // 如果当前单词为空（句子已完成，开始新句子）
+    if (input.currentWords.length === 0 && input.history.length > 0) {
+      return new NewSentenceStartState();
     }
+    return this; // 继续构建
   }
   
-  buildGuidance(ctx: StateContext): string {
-    return "Provide next word options to continue this sentence.";
-  }
-  
-  nextState(action: UserAction): StoryCreationState {
-    switch (action) {
-      case UserAction.ADD_WORD:
-        return StoryCreationState.SENTENCE_BUILDING; // 继续构建
-      case UserAction.COMPLETE_SENTENCE:
-        return StoryCreationState.NEW_SENTENCE_START; // 完成后开始新句子
-      default:
-        return this.stateName;
-    }
+  buildPrompt(input: PromptInput): string {
+    const context = this.buildContext(input.history);
+    const currentText = input.currentWords.map(w => w.word).join(' ');
+    
+    return `
+${context}
+
+Current sentence being built: "${currentText}"
+Words count: ${input.currentWords.length}
+
+Provide next word options to continue this sentence.
+
+Tasks:
+1. Determine scene
+2. Generate 2 nextOptions
+3. Check if complete (6+ words AND ends with noun/verb)
+    `;
   }
 }
 
-// 状态机管理器
-class StoryStateMachine {
-  private static strategies: Map<StoryCreationState, PromptStrategy> = new Map<StoryCreationState, PromptStrategy>([
-    [StoryCreationState.FIRST_SENTENCE_START, new FirstSentenceStartStrategy()],
-    [StoryCreationState.FIRST_SENTENCE_BUILDING, new FirstSentenceBuildingStrategy()],
-    [StoryCreationState.NEW_SENTENCE_START, new NewSentenceStartStrategy()],
-    [StoryCreationState.SENTENCE_BUILDING, new SentenceBuildingStrategy()]
-  ]);
+// 状态3: 新句子开始（续写故事）
+class NewSentenceStartState extends StoryCreationState {
+  readonly stateName = 'NewSentenceStart';
   
-  // 根据当前上下文确定状态
-  static determineState(ctx: StateContext): StoryCreationState {
-    const hasWords = ctx.currentWords.length > 0;
-    const hasHistory = ctx.history.length > 0;
+  process(input: PromptInput): StoryCreationState {
+    // 当添加了第一个单词，转换到句子构建状态
+    if (input.currentWords.length > 0) {
+      return new SentenceBuildingState();
+    }
+    return this; // 保持当前状态
+  }
+  
+  buildPrompt(input: PromptInput): string {
+    const context = this.buildContext(input.history);
+    const currentText = input.currentWords.map(w => w.word).join(' ');
+    const lastSentence = input.history.length > 0 ? input.history[input.history.length - 1].sentence : "";
+    
+    return `
+${context}
+
+Current sentence being built: "${currentText}"
+Words count: ${input.currentWords.length}
+
+IMPORTANT: This is a NEW sentence continuing from "${lastSentence}".
+
+MUST follow this strict priority:
+1st choice - PRONOUN: If the last sentence has a clear subject (person/animal/thing), use: It, She, He, They
+2nd choice - TIME/TRANSITION: If pronoun doesn't fit, use: Then,/Next,/Suddenly,/Later,/Soon,/Meanwhile,
+3rd choice - ONLY if neither pronoun nor time word works: use a noun WITHOUT article (e.g., "Dragon" not "The dragon")
+
+FORBIDDEN: Never start with "The" or "A" when continuing a story!
+
+Example:
+- After "The dragon flew fast" → Options: "It" vs "Suddenly,"
+- After "A girl opened the door" → Options: "She" vs "Then,"
+- After "They played together" → Options: "Next," vs "Later,"
+
+Tasks:
+1. Determine scene
+2. Generate 2 nextOptions
+3. Check if complete (6+ words AND ends with noun/verb)
+    `;
+  }
+}
+
+// 状态4: 句子构建中（续写）
+class SentenceBuildingState extends StoryCreationState {
+  readonly stateName = 'SentenceBuilding';
+  
+  process(input: PromptInput): StoryCreationState {
+    // 如果当前单词为空（句子已完成，开始新句子）
+    if (input.currentWords.length === 0 && input.history.length > 0) {
+      return new NewSentenceStartState();
+    }
+    return this; // 继续构建
+  }
+  
+  buildPrompt(input: PromptInput): string {
+    const context = this.buildContext(input.history);
+    const currentText = input.currentWords.map(w => w.word).join(' ');
+    
+    return `
+${context}
+
+Current sentence being built: "${currentText}"
+Words count: ${input.currentWords.length}
+
+Provide next word options to continue this sentence.
+
+Tasks:
+1. Determine scene
+2. Generate 2 nextOptions
+3. Check if complete (6+ words AND ends with noun/verb)
+    `;
+  }
+}
+
+// ============================================
+// 状态工厂 - 初始化状态
+// ============================================
+
+class StateFactory {
+  static createInitialState(input: PromptInput): StoryCreationState {
+    const hasWords = input.currentWords.length > 0;
+    const hasHistory = input.history.length > 0;
     
     if (!hasHistory && !hasWords) {
-      return StoryCreationState.FIRST_SENTENCE_START;
+      return new FirstSentenceStartState();
     } else if (!hasHistory && hasWords) {
-      return StoryCreationState.FIRST_SENTENCE_BUILDING;
+      return new FirstSentenceBuildingState();
     } else if (hasHistory && !hasWords) {
-      return StoryCreationState.NEW_SENTENCE_START;
+      return new NewSentenceStartState();
     } else {
-      return StoryCreationState.SENTENCE_BUILDING;
+      return new SentenceBuildingState();
     }
-  }
-  
-  // 获取当前状态的策略
-  static getStrategy(state: StoryCreationState): PromptStrategy {
-    const strategy = this.strategies.get(state);
-    if (!strategy) {
-      throw new Error(`Unknown state: ${state}`);
-    }
-    return strategy;
   }
 }
 
@@ -235,45 +242,22 @@ class StoryStateMachine {
 // ============================================
 
 export const fetchGameStep = async (currentWords: WordOption[], history: StoryPage[] = []): Promise<AIResponse> => {
-  const currentSentenceText = currentWords.map(w => w.word).join(" ");
-  const lastSentence = history.length > 0 ? history[history.length - 1].sentence : "";
-  
-  // 创建状态上下文
-  const ctx: StateContext = {
+  const input: PromptInput = {
     currentWords,
-    history,
-    currentSentenceText,
-    lastSentence
+    history
   };
   
-  // 状态机：确定当前状态
-  const currentState = StoryStateMachine.determineState(ctx);
+  // 状态模式：state1 + input → state2
+  const currentState = StateFactory.createInitialState(input);
+  const nextState = currentState.process(input);
   
-  // 获取当前状态的策略
-  const strategy = StoryStateMachine.getStrategy(currentState);
-  
-  // 使用策略构建 Prompt
-  const contextPrompt = strategy.buildContext(ctx);
-  const guidance = strategy.buildGuidance(ctx);
-  
-  const prompt = `
-${contextPrompt}
-
-Current sentence being built: "${currentSentenceText}"
-Words count: ${currentWords.length}
-
-${guidance}
-
-Tasks:
-1. Determine scene
-2. Generate 2 nextOptions
-3. Check if complete (6+ words AND ends with noun/verb)
-  `;
+  // 使用当前状态生成 Prompt
+  const prompt = currentState.buildPrompt(input);
 
   // 打印给 AI 的完整上下文
   console.log('\n========== 📤 AI Request Context ==========');
-  console.log('🎯 Current State:', currentState);
-  console.log('📋 Strategy:', strategy.constructor.name);
+  console.log('🎯 Current State:', currentState.stateName);
+  console.log('➡️  Next State (after response):', nextState.stateName);
   console.log('📚 History Pages:', history.length);
   if (history.length > 0) {
     console.log('Full Story History:');
@@ -281,7 +265,7 @@ Tasks:
       console.log(`  Page ${idx + 1}: "${page.sentence}"`);
     });
   }
-  console.log('✍️  Current Words:', currentSentenceText || '(empty - starting new sentence)');
+  console.log('✍️  Current Words:', currentWords.map(w => w.word).join(' ') || '(empty - starting new sentence)');
   console.log('\n--- Prompt to AI ---');
   console.log(prompt);
   console.log('==========================================\n');
