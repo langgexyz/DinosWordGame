@@ -42,32 +42,62 @@ Examples:
 **Scenes:** forest🌲 ocean🌊 space🚀 magic✨ home🏠 school🏫 park🎡 playground🛝 street🚦 hospital🏥 restaurant🍽️ library📚 shop🏪 default🌟
 `;
 
-export const fetchGameStep = async (currentWords: WordOption[], history: StoryPage[] = []): Promise<AIResponse> => {
-  const isStartOfSentence = currentWords.length === 0;
-  const lastSentence = history.length > 0 ? history[history.length - 1].sentence : "";
-  
-  // Build context
-  let contextPrompt = "";
-  if (history.length === 0) {
-    contextPrompt = "Starting a brand new story.";
-  } else if (history.length <= 3) {
-    contextPrompt = `Story so far: ${history.map(h => `"${h.sentence}"`).join('. ')}.`;
-  } else {
-    // Show last 2-3 sentences for continuity
-    const recent = history.slice(-3);
-    contextPrompt = `Recent story: ${recent.map(h => `"${h.sentence}"`).join('. ')}.`;
+// ============================================
+// Prompt 策略接口
+// ============================================
+
+interface PromptContext {
+  currentWords: WordOption[];
+  history: StoryPage[];
+  currentSentenceText: string;
+  lastSentence: string;
+}
+
+interface PromptStrategy {
+  buildContext(ctx: PromptContext): string;
+  buildGuidance(ctx: PromptContext): string;
+}
+
+// 策略1: 新故事的第一句
+class FirstSentenceStrategy implements PromptStrategy {
+  buildContext(ctx: PromptContext): string {
+    return "Starting a brand new story.";
   }
   
-  const currentSentenceText = currentWords.map(w => w.word).join(" ");
+  buildGuidance(ctx: PromptContext): string {
+    return "This is the FIRST sentence. You may use articles: The/A/Once/One";
+  }
+}
 
-  const prompt = `
-${contextPrompt}
+// 策略2: 继续现有句子（添加单词）
+class ContinueSentenceStrategy implements PromptStrategy {
+  buildContext(ctx: PromptContext): string {
+    if (ctx.history.length <= 3) {
+      return `Story so far: ${ctx.history.map(h => `"${h.sentence}"`).join('. ')}.`;
+    } else {
+      const recent = ctx.history.slice(-3);
+      return `Recent story: ${recent.map(h => `"${h.sentence}"`).join('. ')}.`;
+    }
+  }
+  
+  buildGuidance(ctx: PromptContext): string {
+    return "Provide next word options to continue this sentence.";
+  }
+}
 
-Current sentence being built: "${currentSentenceText}"
-Words count: ${currentWords.length}
-
-${isStartOfSentence && history.length > 0 
-  ? `IMPORTANT: This is a NEW sentence continuing from "${lastSentence}".
+// 策略3: 开始新句子（故事延续）
+class NewSentenceContinuationStrategy implements PromptStrategy {
+  buildContext(ctx: PromptContext): string {
+    if (ctx.history.length <= 3) {
+      return `Story so far: ${ctx.history.map(h => `"${h.sentence}"`).join('. ')}.`;
+    } else {
+      const recent = ctx.history.slice(-3);
+      return `Recent story: ${recent.map(h => `"${h.sentence}"`).join('. ')}.`;
+    }
+  }
+  
+  buildGuidance(ctx: PromptContext): string {
+    return `IMPORTANT: This is a NEW sentence continuing from "${ctx.lastSentence}".
   
   MUST follow this strict priority:
   1st choice - PRONOUN: If the last sentence has a clear subject (person/animal/thing), use: It, She, He, They
@@ -79,11 +109,58 @@ ${isStartOfSentence && history.length > 0
   Example:
   - After "The dragon flew fast" → Options: "It" vs "Suddenly,"
   - After "A girl opened the door" → Options: "She" vs "Then,"
-  - After "They played together" → Options: "Next," vs "Later,"`
-  : isStartOfSentence 
-    ? "This is the FIRST sentence. You may use articles: The/A/Once/One"
-    : "Provide next word options to continue this sentence."
+  - After "They played together" → Options: "Next," vs "Later,"`;
+  }
 }
+
+// Prompt 策略选择器
+class PromptStrategySelector {
+  static select(currentWords: WordOption[], history: StoryPage[]): PromptStrategy {
+    const isStartOfSentence = currentWords.length === 0;
+    
+    if (history.length === 0 && isStartOfSentence) {
+      // 新故事的第一句
+      return new FirstSentenceStrategy();
+    } else if (isStartOfSentence) {
+      // 有历史，开始新句子
+      return new NewSentenceContinuationStrategy();
+    } else {
+      // 继续当前句子
+      return new ContinueSentenceStrategy();
+    }
+  }
+}
+
+// ============================================
+// 主函数
+// ============================================
+
+export const fetchGameStep = async (currentWords: WordOption[], history: StoryPage[] = []): Promise<AIResponse> => {
+  const currentSentenceText = currentWords.map(w => w.word).join(" ");
+  const lastSentence = history.length > 0 ? history[history.length - 1].sentence : "";
+  
+  // 创建上下文对象
+  const ctx: PromptContext = {
+    currentWords,
+    history,
+    currentSentenceText,
+    lastSentence
+  };
+  
+  // 选择策略
+  const strategy = PromptStrategySelector.select(currentWords, history);
+  
+  // 构建 Prompt
+  const contextPrompt = strategy.buildContext(ctx);
+  const guidance = strategy.buildGuidance(ctx);
+  
+  const prompt = `
+${contextPrompt}
+
+Current sentence being built: "${currentSentenceText}"
+Words count: ${currentWords.length}
+
+${guidance}
 
 Tasks:
 1. Determine scene
@@ -93,6 +170,7 @@ Tasks:
 
   // 打印给 AI 的完整上下文
   console.log('\n========== 📤 AI Request Context ==========');
+  console.log('Strategy:', strategy.constructor.name);
   console.log('History Pages:', history.length);
   if (history.length > 0) {
     console.log('Full Story History:');
@@ -100,8 +178,7 @@ Tasks:
       console.log(`  Page ${idx + 1}: "${page.sentence}"`);
     });
   }
-  console.log('Current Words:', currentWords.map(w => w.word).join(' ') || '(empty)');
-  console.log('Is Start of Sentence:', isStartOfSentence);
+  console.log('Current Words:', currentSentenceText || '(empty)');
   console.log('\n--- Prompt to AI ---');
   console.log(prompt);
   console.log('==========================================\n');
