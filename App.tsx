@@ -160,7 +160,7 @@ const App: React.FC = () => {
       
       // 播放 AI 评论（仅在构建阶段）
       if (!aiResponse.isComplete) {
-        setTimeout(() => speechService.speak(aiResponse.aiComment, "zh-CN"), 800);
+        setTimeout(() => speechService.speak(aiResponse.aiComment, "en-US"), 800);
       }
     } catch (error) {
       console.error("Game processing error:", error);
@@ -174,7 +174,7 @@ const App: React.FC = () => {
   // 开始游戏
   const startGame = async () => {
     setViewMode('game');
-    speechService.speak("吼吼！故事开始啦！", "zh-CN");
+    speechService.speak("Let's create a story together!", "en-US");
     
     // 只创建临时会话ID，不立即保存到 store（防止空故事）
     const sessionId = `story-${Date.now()}`;
@@ -203,7 +203,7 @@ const App: React.FC = () => {
   const continueCreatingStory = async (story: Story) => {
     // 进入游戏模式
     setViewMode('game');
-    speechService.speak("吼吼！继续我们的故事吧！", "zh-CN");
+    speechService.speak("Let's continue our story!", "en-US");
     
     // 设置为当前创作的故事
     setGameState(prev => ({
@@ -239,7 +239,7 @@ const App: React.FC = () => {
       }));
       
       // 播放 AI 评论
-      setTimeout(() => speechService.speak(aiResponse.aiComment, "zh-CN"), 800);
+      setTimeout(() => speechService.speak(aiResponse.aiComment, "en-US"), 800);
     } catch (error) {
       console.error('Failed to continue story:', error);
       setGameState(prev => ({
@@ -567,7 +567,7 @@ const App: React.FC = () => {
               isComplete={gameState.currentPage.isComplete}
               isGeneratingImage={gameState.ui.isGeneratingImage}
               storyImage={gameState.ui.generatedImage}
-              englishTranslation={gameState.currentPage.translation || ""}
+              englishTranslation={gameState.currentPage.words.map(w => w.word).join(' ')}
               options={gameState.ai.nextOptions}
               loading={gameState.ui.loading}
               highlightedWord={highlightedWord}
