@@ -69,15 +69,19 @@ Words count: ${currentWords.length}
 ${isStartOfSentence && history.length > 0 
   ? `IMPORTANT: This is a NEW sentence continuing from "${lastSentence}".
   
-  Choose options from this priority order:
-  1. PRONOUNS (best): It/She/He/They (if subject was mentioned)
-  2. TIME WORDS (good): Then,/Next,/Suddenly,/Later,/Soon,
-  3. CHARACTER NAMES (ok): specific name without "The"
-  4. ARTICLES (avoid): The/A (use only if nothing else works)
+  MUST follow this strict priority:
+  1st choice - PRONOUN: If the last sentence has a clear subject (person/animal/thing), use: It, She, He, They
+  2nd choice - TIME/TRANSITION: If pronoun doesn't fit, use: Then,/Next,/Suddenly,/Later,/Soon,/Meanwhile,
+  3rd choice - ONLY if neither pronoun nor time word works: use a noun WITHOUT article (e.g., "Dragon" not "The dragon")
   
-  Most sentences should start with pronouns or time words!`
+  FORBIDDEN: Never start with "The" or "A" when continuing a story!
+  
+  Example:
+  - After "The dragon flew fast" → Options: "It" vs "Suddenly,"
+  - After "A girl opened the door" → Options: "She" vs "Then,"
+  - After "They played together" → Options: "Next," vs "Later,"`
   : isStartOfSentence 
-    ? "This is the FIRST sentence. Provide diverse starters: 'The/A/Once' or character names."
+    ? "This is the FIRST sentence. You may use articles: The/A/Once/One"
     : "Provide next word options to continue this sentence."
 }
 
