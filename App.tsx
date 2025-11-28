@@ -13,8 +13,8 @@ import { clsx } from 'clsx';
 import { useStoryStore } from './stores/storyStore';
 import { useUsageStore } from './stores/usageStore';
 import { useChunkStore } from './stores/chunkStore';
-import { generateStoryCover } from './data/storyCover';
 import { useInteractionStateMachine } from './hooks/useInteractionStateMachine';
+import { createStoryPersistenceService, PersistenceContext } from './services/storyPersistence';
 
 // Theme configurations for different scenes
 const SCENE_THEMES: Record<string, string> = {
@@ -106,12 +106,22 @@ const App: React.FC = () => {
   // 当前故事的角色信息
   const [currentCharacter, setCurrentCharacter] = useState<CharacterInfo | null>(null);
 
+  // 语音播放结束回调的 ref（用于状态机通知）
+  const onSpeechEndCallbackRef = React.useRef<(() => void) | null>(null);
+
+  // 故事持久化服务
+  const storyPersistenceService = useMemo(() => createStoryPersistenceService(), []);
+
   // 创建语音服务实例
   const speechService = useMemo(() => createSpeechService({}, {
     onStart: () => {},
     onEnd: () => {
       setIsDinoSpeaking(false);
       setHighlightedWord(null);
+      // 通知状态机
+      if (onSpeechEndCallbackRef.current) {
+        onSpeechEndCallbackRef.current();
+      }
     },
     onBoundary: (word) => {
       const matchedOption = gameState.ai.nextOptions.find(
@@ -141,10 +151,91 @@ const App: React.FC = () => {
   const floatingEmoji = SCENE_ELEMENTS[currentScene?.type] || SCENE_ELEMENTS.default;
 
   // ============================================
+  // 交互状态机集成
+  // ============================================
+  
+  const {
+    stateUI,
+    handleUserClickOption: stateMachineHandleClick,
+    handleAISpeechEnded,
+    handleImageGenerationCompleted,
+    handleImageGenerationFailed,
+    handleUserClickNext,
+    canInteract
+  } = useInteractionStateMachine({
+    currentWords: gameState.currentPage.words,
+    onRequestAI: async (words: WordOption[]) => {
+      // 请求 AI 获取下一步引导
+      const completedPages = getCompletedPages();
+      
+      let usageHistory: StoryHistory | undefined;
+      let chunkContext: ChunkContext | undefined;
+      
+      if (completedPages.length === 0 && words.length === 0) {
+        usageHistory = {
+          characters: getMostUsedCharacters(5),
+          scenes: getMostUsedScenes(5),
+          totalStories: useUsageStore.getState().totalStories
+        };
+      }
+      
+      chunkContext = {
+        masteredChunks: getChunksByProficiency('mastered').map(c => c.chunk),
+        familiarChunks: getChunksByProficiency('familiar').map(c => c.chunk),
+        learningChunks: getChunksByProficiency('learning').map(c => c.chunk),
+        newChunks: getChunksByProficiency('new').map(c => c.chunk),
+        chunksForReview: suggestChunksForReview()
+      };
+      
+      const aiResponse = await fetchGameStep(words, completedPages, usageHistory, chunkContext);
+      
+      // 如果 AI 返回了角色信息，记录它
+      if (aiResponse.characterInfo && !currentCharacter) {
+        setCurrentCharacter(aiResponse.characterInfo);
+        console.log('[App] Character detected:', aiResponse.characterInfo.name);
+      }
+      
+      // 更新状态
+      setGameState(prev => ({
+        ...prev,
+        currentPage: {
+          words: words,
+          scene: aiResponse.scene,
+          isComplete: false
+        },
+        ai: {
+          comment: aiResponse.aiComment,
+          nextOptions: aiResponse.nextOptions,
+          phase: 'building'
+        },
+        ui: { ...prev.ui, loading: false }
+      }));
+      
+      return aiResponse;
+    },
+    onPlayAIComment: (comment: string) => {
+      speechService.speak(comment, "en-US");
+    },
+    onGenerateImage: async (sentence: string, scene: string, previousImage: string | null) => {
+      const completedPages = getCompletedPages();
+      const imageUrl = await generateStoryImage(sentence, scene, completedPages);
+      return imageUrl || '';
+    },
+    onSavePage: async () => {
+      await continueStory();
+    }
+  });
+
+  // 设置语音播放结束回调
+  React.useEffect(() => {
+    onSpeechEndCallbackRef.current = handleAISpeechEnded;
+  }, [handleAISpeechEnded]);
+
+  // ============================================
   // 核心业务逻辑
   // ============================================
   
-  // 处理游戏步骤 - 请求 AI 获取下一步引导
+  // 处理游戏步骤 - 请求 AI 获取下一步引导（保留用于其他地方调用）
   const processGameStep = async (currentWords: WordOption[]) => {
     setGameState(prev => ({
       ...prev,
@@ -312,8 +403,14 @@ const App: React.FC = () => {
     await processGameStep(gameState.currentPage.words);
   };
 
-  // 选择单词
+  // 选择单词（使用状态机）
   const handleOptionClick = async (option: WordOption) => {
+    // 检查是否可以交互（状态机控制）
+    if (!canInteract) {
+      console.log('[App] Cannot interact in current state');
+      return;
+    }
+
     const newWords = [...gameState.currentPage.words, option];
     
     // 累加播放：读出从头开始的完整句子，增强记忆
@@ -328,30 +425,17 @@ const App: React.FC = () => {
       allChunksInSentence    // 同句子中的其他 chunks
     );
 
-    // 关键：根据用户选择的 option 的 willComplete 来决定句子是否完成
-    // 而不是等 AI 返回后再判断
-    if (option.willComplete) {
-      // 用户选择的这个词会让句子完成
-      // 设置为 generating 状态，触发图片生成
-      setGameState(prev => ({
-        ...prev,
-        currentPage: {
-          ...prev.currentPage,
-          words: newWords,
-          isComplete: true,  // 标记为完成
-          translation: fullText
-        },
-        ai: {
-          ...prev.ai,
-          nextOptions: [],
-          phase: 'generating'  // 触发 useEffect 生成图片
-        }
-      }));
-      // 不再调用 AI 获取下一步选项
-    } else {
-      // 用户选择的这个词不会完成句子，继续获取下一步选项
-      await processGameStep(newWords);
-    }
+    // 更新当前页面的 words
+    setGameState(prev => ({
+      ...prev,
+      currentPage: {
+        ...prev.currentPage,
+        words: newWords
+      }
+    }));
+
+    // 委托给状态机处理
+    stateMachineHandleClick(option);
   };
 
   const handlePlayDinoComment = () => {
@@ -372,7 +456,7 @@ const App: React.FC = () => {
     }
   };
 
-  // 继续下一页（自动保存到 Story）
+  // 继续下一页（使用策略模式，无 if-else）
   const continueStory = async () => {
     console.log('[App] continueStory called, currentStoryId:', gameState.currentStoryId);
     
@@ -381,70 +465,42 @@ const App: React.FC = () => {
       return;
     }
     
-    const currentPage = gameState.currentPage;
-    const existingStory = getCurrentStory();
-    
-    console.log('[App] existingStory:', existingStory);
-    console.log('[App] currentPage:', currentPage);
-    
-    // 创建新的完成页
+    // 构建完成页
     const completedPage: StoryPage = {
-      id: (existingStory?.pages.length || 0) + 1,
-      sentence: currentPage.words.map(w => w.word).join(' '),
-      words: currentPage.words,
+      id: (getCurrentStory()?.pages.length || 0) + 1,
+      sentence: gameState.currentPage.words.map(w => w.word).join(' '),
+      words: gameState.currentPage.words,
       illustration: gameState.ui.generatedImage,
-      scene: currentPage.scene,
-      translation: currentPage.translation,
+      scene: gameState.currentPage.scene,
+      translation: gameState.currentPage.translation,
       timestamp: Date.now()
     };
 
-    // 如果故事还不存在（第一页），创建新故事
-    if (!existingStory) {
-      console.log('[App] Creating new story (first page)');
-      const newStory: Story = {
-        id: gameState.currentStoryId,
-        title: await generateStoryTitle([completedPage]), // 自动生成标题
-        cover: generateStoryCover([completedPage]),
-        pages: [completedPage],
-        character: currentCharacter || undefined,  // 保存角色信息
-        mainScene: completedPage.scene.type,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      };
-      console.log('[App] New story created:', newStory);
-      addStory(newStory);
-      console.log('[App] Story added to store');
-      
-      // 记录角色和场景统计
-      console.log('[App] Recording character and scene stats...');
-      if (currentCharacter) {
-        console.log('[App] Recording character:', currentCharacter.name);
-        recordCharacter(currentCharacter, completedPage.scene.type);
-      } else {
-        console.warn('[App] No currentCharacter to record!');
-      }
-      console.log('[App] Recording scene:', completedPage.scene.type);
-      recordScene(completedPage.scene.type, completedPage.scene.backgroundEmoji, currentCharacter?.name || 'unknown');
-      recordStory(1);  // 第一页
-      console.log('[App] Stats recorded successfully');
-      
-    } else {
-      // 更新现有故事
-      console.log('[App] Updating existing story');
-      const updatedPages = [...existingStory.pages, completedPage];
-      updateStory(existingStory.id, {
-        pages: updatedPages,
-        cover: generateStoryCover(updatedPages),
-        title: await generateStoryTitle(updatedPages), // 随着内容增加，更新标题
-        updatedAt: Date.now()
-      });
-      console.log('[App] Story updated, total pages:', updatedPages.length);
-      
-      // 更新场景统计
-      recordScene(completedPage.scene.type, completedPage.scene.backgroundEmoji, currentCharacter?.name || 'unknown');
-    }
+    // 构建持久化上下文
+    const context: PersistenceContext = {
+      storyId: gameState.currentStoryId,
+      completedPage,
+      existingStory: getCurrentStory(),
+      currentCharacter,
+      addStory,
+      updateStory,
+      recordCharacter,
+      recordScene,
+      recordStory
+    };
 
-    // 清空当前页状态，开始新页
+    // 使用策略模式持久化（自动选择创建或更新策略）
+    await storyPersistenceService.persistPage(context);
+
+    // 重置状态，准备下一页
+    resetPageState();
+
+    // 请求下一页的开始
+    await processGameStep([]);
+  };
+
+  // 重置页面状态（提取为独立方法）
+  const resetPageState = () => {
     setGameState(prev => ({
       ...prev,
       currentPage: {
@@ -454,7 +510,7 @@ const App: React.FC = () => {
       },
       ai: {
         comment: "Thinking...",
-      nextOptions: [],
+        nextOptions: [],
         phase: 'building'
       },
       ui: {
@@ -464,9 +520,6 @@ const App: React.FC = () => {
         error: null
       }
     }));
-
-    // 请求下一页的开始
-    await processGameStep([]);
   };
   
   // 返回故事库（会自动保存当前进度）
@@ -506,20 +559,37 @@ const App: React.FC = () => {
           ai: { ...prev.ai, comment: "Great! Let me draw this scene...🎨" }
         }));
         
-        // 获取已完成的页面作为历史上下文
-        const completedPages = getCompletedPages();
-        const img = await generateStoryImage(text, gameState.currentPage.scene.type, completedPages);
-        
-        setGameState(prev => ({
-          ...prev,
-          ui: { ...prev.ui, isGeneratingImage: false, generatedImage: img },
-          ai: { ...prev.ai, comment: "Perfect! One more page done!🎉", phase: 'completed' }
-        }));
+        try {
+          // 获取已完成的页面作为历史上下文
+          const completedPages = getCompletedPages();
+          const img = await generateStoryImage(text, gameState.currentPage.scene.type, completedPages);
+          
+          setGameState(prev => ({
+            ...prev,
+            ui: { ...prev.ui, isGeneratingImage: false, generatedImage: img },
+            ai: { ...prev.ai, comment: "Perfect! One more page done!🎉", phase: 'completed' }
+          }));
+          
+          // 通知状态机图片生成完成
+          if (img) {
+            handleImageGenerationCompleted(img);
+          }
+        } catch (error) {
+          console.error('[App] Image generation failed:', error);
+          setGameState(prev => ({
+            ...prev,
+            ui: { ...prev.ui, isGeneratingImage: false },
+            ai: { ...prev.ai, comment: "Oops! Let's try again.", phase: 'building' }
+          }));
+          
+          // 通知状态机图片生成失败
+          handleImageGenerationFailed(error as Error);
+        }
       };
 
       generateImage();
     }
-  }, [gameState.ai.phase]);
+  }, [gameState.ai.phase, handleImageGenerationCompleted, handleImageGenerationFailed]);
 
   // ============================================
   // 路由渲染
@@ -704,9 +774,11 @@ const App: React.FC = () => {
               onContinue={continueStory}
               onImageClick={() => gameState.ui.generatedImage && setImagePreview(gameState.ui.generatedImage)}
               onPlaySentence={playCompletedSentence}
-              aiComment={gameState.ui.isGeneratingImage ? "Painting a picture for you! 🎨" : gameState.ai.comment}
+              aiComment={stateUI.statusMessage || gameState.ai.comment}
               isDinoSpeaking={isDinoSpeaking}
               onPlayComment={handlePlayDinoComment}
+              canInteract={canInteract}
+              dinoEmoji={stateUI.dinoEmoji}
             />
           </div>
         </div>

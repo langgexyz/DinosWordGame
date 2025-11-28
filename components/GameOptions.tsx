@@ -21,6 +21,9 @@ interface GameOptionsProps {
   aiComment: string;
   isDinoSpeaking: boolean;
   onPlayComment: () => void;
+  // State machine UI props
+  canInteract?: boolean;      // 是否可以交互（状态机控制）
+  dinoEmoji?: string;         // Dino 表情（状态机控制）
 }
 
 export const GameOptions: React.FC<GameOptionsProps> = ({
@@ -37,7 +40,9 @@ export const GameOptions: React.FC<GameOptionsProps> = ({
   onPlaySentence,
   aiComment,
   isDinoSpeaking,
-  onPlayComment
+  onPlayComment,
+  canInteract = true,
+  dinoEmoji = '🦖'
 }) => {
   if (isComplete) {
     return (
@@ -115,7 +120,7 @@ export const GameOptions: React.FC<GameOptionsProps> = ({
       <div className="bg-white/90 backdrop-blur-xl p-3 md:p-4 rounded-[1.5rem] md:rounded-[2rem] shadow-lg flex items-center gap-3 border-2 border-white">
         <div className="relative shrink-0">
           <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-green-100 flex items-center justify-center text-3xl md:text-4xl shadow-inner border-2 border-white">
-            🦖
+            {dinoEmoji}
           </div>
           {loading && (
             <div className="absolute -top-1 -right-1 bg-yellow-400 p-1 rounded-full shadow-sm animate-bounce">
@@ -156,6 +161,7 @@ export const GameOptions: React.FC<GameOptionsProps> = ({
               key={idx}
               option={option} 
               onClick={() => onOptionClick(option)}
+              disabled={!canInteract || loading}
               isHighlighted={highlightedWord === option.word.toLowerCase()}
             />
           ))

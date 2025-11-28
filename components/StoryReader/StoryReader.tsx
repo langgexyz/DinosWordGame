@@ -118,9 +118,10 @@ export const StoryReader: React.FC<StoryReaderProps> = ({ story, onClose, onCont
             {onContinueEdit && (
         <button 
                 onClick={() => onContinueEdit(story)}
-                className="px-2 md:px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs md:text-sm font-bold rounded-full hover:scale-105 active:scale-95 transition-transform shadow-md"
+                className="px-2 md:px-4 py-1 md:py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs md:text-sm font-bold rounded-full hover:scale-105 active:scale-95 transition-transform shadow-md whitespace-nowrap"
         >
-                ✍️ Continue
+                <span className="hidden sm:inline">✍️ Continue</span>
+                <span className="sm:hidden">✍️</span>
         </button>
             )}
             

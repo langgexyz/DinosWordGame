@@ -19,28 +19,28 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   backText = "← Back"
 }) => {
   return (
-    <header className="h-14 md:h-16 flex items-center justify-between px-4 md:px-6 bg-white/90 backdrop-blur-sm shadow-sm border-b border-slate-100">
+    <header className="h-14 md:h-16 flex items-center gap-2 md:gap-4 px-3 md:px-6 bg-white/90 backdrop-blur-sm shadow-sm border-b border-slate-100">
       {/* 左侧：返回按钮 */}
-      {onBack ? (
+      {onBack && (
         <button 
           onClick={onBack}
-          className="text-base md:text-lg hover:scale-105 transition-transform active:scale-95 font-semibold text-slate-700 hover:text-slate-900 flex items-center gap-1"
+          className="text-base md:text-lg hover:scale-105 transition-transform active:scale-95 font-semibold text-slate-700 hover:text-slate-900 flex items-center gap-1 shrink-0"
         >
           {backText}
         </button>
-      ) : (
-        <div className="w-20" /> // 占位符保持对齐
       )}
       
-      {/* 中间：标题 */}
-      <h1 className="font-black text-slate-800 text-lg md:text-2xl truncate max-w-xs md:max-w-2xl text-center">
+      {/* 中间：标题（允许自动伸缩） */}
+      <h1 className="font-black text-slate-800 text-base md:text-2xl truncate flex-1 text-center min-w-0">
         {title}
       </h1>
       
       {/* 右侧：自定义内容 */}
-      <div className="flex items-center gap-2 md:gap-3 min-w-[5rem] justify-end">
-        {rightContent}
-      </div>
+      {rightContent && (
+        <div className="flex items-center gap-2 md:gap-3 shrink-0">
+          {rightContent}
+        </div>
+      )}
     </header>
   );
 };
