@@ -322,13 +322,18 @@ const App: React.FC = () => {
 
   // 继续下一页（自动保存到 Story）
   const continueStory = async () => {
+    console.log('[App] continueStory called, currentStoryId:', gameState.currentStoryId);
+    
     if (!gameState.currentStoryId) {
-      console.error('No current story!');
+      console.error('[App] No current story!');
       return;
     }
     
     const currentPage = gameState.currentPage;
     const existingStory = getCurrentStory();
+    
+    console.log('[App] existingStory:', existingStory);
+    console.log('[App] currentPage:', currentPage);
     
     // 创建新的完成页
     const completedPage: StoryPage = {
@@ -343,6 +348,7 @@ const App: React.FC = () => {
 
     // 如果故事还不存在（第一页），创建新故事
     if (!existingStory) {
+      console.log('[App] Creating new story (first page)');
       const newStory: Story = {
         id: gameState.currentStoryId,
         title: await generateStoryTitle([completedPage]), // 自动生成标题
@@ -351,9 +357,12 @@ const App: React.FC = () => {
         createdAt: Date.now(),
         updatedAt: Date.now()
       };
+      console.log('[App] New story created:', newStory);
       addStory(newStory);
+      console.log('[App] Story added to store');
     } else {
       // 更新现有故事
+      console.log('[App] Updating existing story');
       const updatedPages = [...existingStory.pages, completedPage];
       updateStory(existingStory.id, {
         pages: updatedPages,
@@ -361,6 +370,7 @@ const App: React.FC = () => {
         title: await generateStoryTitle(updatedPages), // 随着内容增加，更新标题
         updatedAt: Date.now()
       });
+      console.log('[App] Story updated, total pages:', updatedPages.length);
     }
 
     // 清空当前页状态，开始新页
