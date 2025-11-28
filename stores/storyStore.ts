@@ -21,9 +21,14 @@ export const useStoryStore = create<StoryStoreState>()(
     (set, get) => ({
       stories: [],
       
-      addStory: (story) => set((state) => ({
-        stories: [...state.stories, story]
-      })),
+      addStory: (story) => {
+        console.log('[StoryStore] addStory called, story:', story.id, 'pages:', story.pages.length);
+        set((state) => {
+          const newStories = [...state.stories, story];
+          console.log('[StoryStore] After add, total stories:', newStories.length);
+          return { stories: newStories };
+        });
+      },
       
       updateStory: (id, updates) => set((state) => ({
         stories: state.stories.map(story =>
@@ -46,6 +51,19 @@ export const useStoryStore = create<StoryStoreState>()(
       // 使用 IndexedDB 存储（支持大容量，可以保存图片）
       storage: createJSONStorage(() => indexedDBStorage),
       // 不再需要 partialize，图片可以直接保存！
+      onRehydrateStorage: () => {
+        console.log('[StoryStore] Starting hydration from IndexedDB...');
+        return (state, error) => {
+          if (error) {
+            console.error('[StoryStore] Hydration error:', error);
+          } else {
+            console.log('[StoryStore] Hydration complete, stories count:', state?.stories?.length || 0);
+            if (state?.stories) {
+              console.log('[StoryStore] Loaded stories:', state.stories.map(s => ({ id: s.id, pages: s.pages.length })));
+            }
+          }
+        };
+      }
     }
   )
 );
