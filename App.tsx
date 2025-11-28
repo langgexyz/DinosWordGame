@@ -674,7 +674,6 @@ const App: React.FC = () => {
               isLoading={gameState.ui.loading}
               isPlayingFullSentence={isPlayingFullSentence}
               onPlaySentence={handlePlayFullSentence}
-              isFirstPage={getCompletedPages().length === 0}
             />
 
             {/* 交互区域 */}

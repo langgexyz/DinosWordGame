@@ -8,7 +8,6 @@ interface SentenceDisplayProps {
   isLoading: boolean;
   isPlayingFullSentence: boolean;
   onPlaySentence: () => void;
-  isFirstPage?: boolean;  // 是否是第一页
 }
 
 export const SentenceDisplay: React.FC<SentenceDisplayProps> = ({
@@ -16,8 +15,7 @@ export const SentenceDisplay: React.FC<SentenceDisplayProps> = ({
   isComplete,
   isLoading,
   isPlayingFullSentence,
-  onPlaySentence,
-  isFirstPage = false
+  onPlaySentence
 }) => {
   return (
     <div className="flex-1 bg-white/80 backdrop-blur-md rounded-[2rem] md:rounded-[2.5rem] border-4 border-white shadow-xl p-4 md:p-10 mb-4 md:mb-6 flex flex-col items-center justify-center relative overflow-hidden">
@@ -50,12 +48,9 @@ export const SentenceDisplay: React.FC<SentenceDisplayProps> = ({
         />
       )}
 
-      {words.length === 0 && !isLoading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 animate-fade-in">
+      {words.length === 0 && isLoading && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
           <div className="text-6xl md:text-8xl animate-bounce">🦖</div>
-          <div className="text-slate-400 font-bold text-xl md:text-3xl text-center px-4">
-            {isFirstPage ? "Once upon a time... 📖" : "What happens next? ✨"}
-          </div>
         </div>
       )}
     </div>
