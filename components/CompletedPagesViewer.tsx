@@ -13,11 +13,13 @@ import { createSpeechService } from '../services/speech';
 interface CompletedPagesViewerProps {
   pages: StoryPage[];
   className?: string;
+  buildingPageIndex?: number;  // 哪一页正在编辑（-1 表示没有）
 }
 
 export const CompletedPagesViewer: React.FC<CompletedPagesViewerProps> = ({ 
   pages,
-  className = ''
+  className = '',
+  buildingPageIndex = -1
 }) => {
   const [currentIndex, setCurrentIndex] = useState(pages.length - 1); // 默认显示最后一页
   const [direction, setDirection] = useState(0);
@@ -128,6 +130,7 @@ export const CompletedPagesViewer: React.FC<CompletedPagesViewerProps> = ({
               page={currentPage}
               onPlayAudio={playCurrentPage}
               isPlaying={isPlaying}
+              isBuilding={currentIndex === buildingPageIndex}
             />
           </motion.div>
         </AnimatePresence>

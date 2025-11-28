@@ -11,12 +11,14 @@ interface PageViewProps {
   page: StoryPage | null;
   onPlayAudio?: () => void;
   isPlaying?: boolean;
+  isBuilding?: boolean;  // 是否正在编辑/构建中
 }
 
 export const PageView: React.FC<PageViewProps> = ({ 
   page, 
   onPlayAudio,
-  isPlaying = false
+  isPlaying = false,
+  isBuilding = false
 }) => {
   if (!page) {
     return (
@@ -27,10 +29,13 @@ export const PageView: React.FC<PageViewProps> = ({
   }
 
   return (
-    <div className="relative bg-white rounded-2xl shadow-2xl p-4 md:p-6 flex flex-col h-full">
+    <div className={`relative bg-white rounded-2xl shadow-2xl p-4 md:p-6 flex flex-col h-full transition-all ${
+      isBuilding ? 'ring-4 ring-blue-400 ring-opacity-60' : ''
+    }`}>
       {/* 页码 */}
-      <div className="absolute top-3 right-3 text-xs md:text-sm text-slate-400 font-medium">
-        {page.id}
+      <div className="absolute top-3 right-3 text-xs md:text-sm font-medium flex items-center gap-1">
+        <span className="text-slate-400">{page.id}</span>
+        {isBuilding && <span className="text-blue-500 animate-pulse">✍️</span>}
       </div>
       
       {/* 图片区域 */}
@@ -43,7 +48,7 @@ export const PageView: React.FC<PageViewProps> = ({
           />
         ) : (
           <div className="text-6xl md:text-8xl opacity-20">
-            {page.scene.backgroundEmoji}
+            {isBuilding ? '✨' : page.scene.backgroundEmoji}
           </div>
         )}
       </div>
@@ -52,6 +57,9 @@ export const PageView: React.FC<PageViewProps> = ({
       <div className="relative pt-3 border-t border-slate-200">
         <p className="text-lg md:text-2xl font-bold text-slate-800 text-center leading-relaxed pr-10 md:pr-14">
           {page.sentence}
+          {isBuilding && (
+            <span className="inline-block w-0.5 h-5 md:h-7 bg-blue-500 ml-1 animate-pulse align-middle">|</span>
+          )}
         </p>
         
         {/* 使用 SpeakerButton */}

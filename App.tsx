@@ -3,7 +3,6 @@ import { GameState, WordOption, StoryPage, Scene, CreationPhase, Story, Characte
 import { fetchGameStep, generateStoryImage, generateStoryTitle, AIResponse, StoryHistory, ChunkContext } from './services/gemini';
 import { createSpeechService } from './services/speech';
 import { GameHeader } from './components/GameHeader';
-import { SentenceDisplay } from './components/SentenceDisplay';
 import { GameOptions } from './components/GameOptions';
 import { StoryLibrary } from './components/StoryLibrary/StoryLibrary';
 import { StoryReader } from './components/StoryReader/StoryReader';
@@ -80,7 +79,6 @@ const App: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('start');
   const [readingStory, setReadingStory] = useState<Story | null>(null);
 
-  const [isPlayingFullSentence, setIsPlayingFullSentence] = useState(false);
   const [isDinoSpeaking, setIsDinoSpeaking] = useState(false);
   const [highlightedWord, setHighlightedWord] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -112,7 +110,6 @@ const App: React.FC = () => {
     onStart: () => {},
     onEnd: () => {
       setIsDinoSpeaking(false);
-      setIsPlayingFullSentence(false);
       setHighlightedWord(null);
     },
     onBoundary: (word) => {
@@ -353,18 +350,6 @@ const App: React.FC = () => {
     } else {
       // 用户选择的这个词不会完成句子，继续获取下一步选项
       await processGameStep(newWords);
-    }
-  };
-
-  // 播放完整句子
-  const handlePlayFullSentence = () => {
-    if (isPlayingFullSentence) {
-      speechService.cancel();
-      setIsPlayingFullSentence(false);
-    } else {
-      const text = gameState.currentPage.words.map(w => w.word).join(' ');
-      setIsPlayingFullSentence(true);
-      speechService.speak(text, "en-US");
     }
   };
 
@@ -652,31 +637,60 @@ const App: React.FC = () => {
           onOpenLibrary={backToLibrary}
         />
 
-        {/* 主内容区域 - 根据是否有已完成页面调整布局 */}
+        {/* 主内容区域 - 绘本创作布局 */}
         <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
           
-          {/* 左侧：已完成页面查看器（有页面时显示） */}
-          {getCompletedPages().length > 0 && (
-            <div className="flex-1 min-h-[300px] md:min-h-0">
-              <CompletedPagesViewer 
-                pages={getCompletedPages()}
-                className="h-full"
-              />
-               </div>
-             )}
+          {/* 左侧：故事页面区域（像书本一样，统一使用 PageView） */}
+          <div className="flex-1 flex flex-col gap-4 min-h-0">
+            
+            {/* 所有页面（包括已完成 + 正在构建的） */}
+            {(() => {
+              const completedPages = getCompletedPages();
+              const hasCurrentWords = gameState.currentPage.words.length > 0;
+              
+              // 如果有任何内容（已完成或正在构建）
+              if (completedPages.length > 0 || hasCurrentWords) {
+                // 构建所有页面数组（已完成 + 当前构建中）
+                const allPages: StoryPage[] = [
+                  ...completedPages,
+                  ...(hasCurrentWords ? [{
+                    id: completedPages.length + 1,
+                    sentence: gameState.currentPage.words.map(w => w.word).join(' '),
+                    words: gameState.currentPage.words,
+                    illustration: gameState.ui.generatedImage || null,
+                    scene: gameState.currentPage.scene,
+                    timestamp: Date.now()
+                  }] : [])
+                ];
+                
+                return (
+                  <div className="flex-1 min-h-[200px] md:min-h-0">
+                    <CompletedPagesViewer 
+                      pages={allPages}
+                      buildingPageIndex={hasCurrentWords ? allPages.length - 1 : -1}
+                      className="h-full"
+                    />
+                  </div>
+                );
+              }
+              
+              // 如果没有任何内容，显示欢迎界面
+              return (
+                <div className="flex-1 bg-white/80 backdrop-blur-md rounded-[2rem] md:rounded-[2.5rem] border-4 border-white shadow-xl flex flex-col items-center justify-center p-8">
+                  <div className="text-8xl md:text-9xl mb-6 animate-bounce">📖</div>
+                  <h2 className="text-2xl md:text-4xl font-black text-slate-700 text-center mb-4">
+                    Let's Create a Story!
+                  </h2>
+                  <p className="text-lg md:text-xl text-slate-500 text-center max-w-md">
+                    Choose words from the right to build your story page by page
+                  </p>
+                </div>
+              );
+            })()}
+          </div>
           
-          {/* 右侧：当前创作区域 */}
-          <div className={`flex-1 flex flex-col ${getCompletedPages().length > 0 ? 'md:max-w-xl' : ''}`}>
-            {/* 句子显示区域 */}
-            <SentenceDisplay 
-              words={gameState.currentPage.words}
-              isComplete={gameState.currentPage.isComplete}
-              isLoading={gameState.ui.loading}
-              isPlayingFullSentence={isPlayingFullSentence}
-              onPlaySentence={handlePlayFullSentence}
-            />
-
-            {/* 交互区域 */}
+          {/* 右侧：交互区域（选项卡片） */}
+          <div className="flex-1 md:max-w-xl flex flex-col">
             <GameOptions 
               isComplete={gameState.currentPage.isComplete}
               isGeneratingImage={gameState.ui.isGeneratingImage}
@@ -692,7 +706,7 @@ const App: React.FC = () => {
               aiComment={gameState.ui.isGeneratingImage ? "Painting a picture for you! 🎨" : gameState.ai.comment}
               isDinoSpeaking={isDinoSpeaking}
               onPlayComment={handlePlayDinoComment}
-                />
+            />
           </div>
         </div>
 
