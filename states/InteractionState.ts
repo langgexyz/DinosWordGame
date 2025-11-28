@@ -96,14 +96,14 @@ export abstract class InteractionState {
    * 进入状态时执行
    */
   onEnter(context: StateContext): void {
-    console.log(`[State] Enter: ${this.name}`);
+    console.log(`[${this.name}] Enter`);
   }
 
   /**
    * 离开状态时执行
    */
   onExit(context: StateContext): void {
-    console.log(`[State] Exit: ${this.name}`);
+    console.log(`[${this.name}] Exit`);
   }
 
   /**
@@ -218,13 +218,19 @@ export class UserSelectingState extends InteractionState {
     super.onEnter(context);
     context.selectedOption = this.selectedOption;
     
+    console.log(`[${this.name}] Selected: "${this.selectedOption.word}"`);
+    console.log(`[${this.name}] Will Complete: ${this.selectedOption.willComplete}`);
+    console.log(`[${this.name}] Waiting 100ms for visual feedback...`);
+    
     // 立即转换到下一个状态
     setTimeout(() => {
       if (this.selectedOption.willComplete) {
         // 句子完成
+        console.log(`[${this.name}] Sentence complete -> SENTENCE_COMPLETE`);
         context.onStateChange(new SentenceCompleteState(this.selectedOption));
       } else {
         // 需要 AI 继续
+        console.log(`[${this.name}] Need more words -> AI_THINKING`);
         context.onStateChange(new AIThinkingState(this.selectedOption));
       }
     }, 100); // 100ms 视觉反馈
@@ -256,17 +262,27 @@ export class AIThinkingState extends InteractionState {
   onEnter(context: StateContext): void {
     super.onEnter(context);
     
-    console.log('[AIThinkingState] Current words:', context.currentWords.map(w => w.word).join(' '));
-    console.log('[AIThinkingState] Selected option:', this.selectedOption.word);
+    const sentence = context.currentWords.map(w => w.word).join(' ');
+    console.log(`[${this.name}] Current sentence: "${sentence}"`);
+    console.log(`[${this.name}] Word count: ${context.currentWords.length}`);
+    console.log(`[${this.name}] Requesting AI...`);
     
     // 发起 API 请求（使用 context.currentWords，它应该已经包含了新选择的词）
+    const startTime = Date.now();
     context.onRequestAI(context.currentWords)
       .then(response => {
+        const duration = Date.now() - startTime;
+        console.log(`[${this.name}] AI responded in ${duration}ms`);
+        console.log(`[${this.name}] AI Comment: "${response.aiComment}"`);
+        console.log(`[${this.name}] Options: ${response.nextOptions.map(o => `"${o.word}"`).join(', ')}`);
+        console.log(`[${this.name}] Scene: ${response.scene.type}`);
+        
         context.aiResponse = response;
         context.onStateChange(new AISpeakingState(response));
       })
       .catch(error => {
-        console.error('[AIThinkingState] API error:', error);
+        const duration = Date.now() - startTime;
+        console.error(`[${this.name}] API error after ${duration}ms:`, error);
         context.onStateChange(new IdleState());
       });
   }
@@ -300,8 +316,12 @@ export class AISpeakingState extends InteractionState {
   onEnter(context: StateContext): void {
     super.onEnter(context);
     
+    console.log(`[${this.name}] Will speak: "${this.aiResponse.aiComment}"`);
+    console.log(`[${this.name}] Waiting 300ms before speaking...`);
+    
     // 播放 AI 评论
     setTimeout(() => {
+      console.log(`[${this.name}] Speaking now...`);
       context.onPlayAIComment(this.aiResponse.aiComment);
     }, 300);
   }
@@ -318,6 +338,7 @@ export class AISpeakingState extends InteractionState {
 
   // 只重写自己关心的事件
   onAISpeechEnded(context: StateContext): InteractionState {
+    console.log(`[${this.name}] Speech ended -> IDLE`);
     return new IdleState();
   }
 }
@@ -335,8 +356,13 @@ export class SentenceCompleteState extends InteractionState {
   onEnter(context: StateContext): void {
     super.onEnter(context);
     
+    const sentence = context.currentWords.map(w => w.word).join(' ');
+    console.log(`[${this.name}] Sentence: "${sentence}"`);
+    console.log(`[${this.name}] Waiting 800ms before generating image...`);
+    
     // 短暂延迟后开始生成图片
     setTimeout(() => {
+      console.log(`[${this.name}] Starting image generation -> IMAGE_GENERATING`);
       context.onStateChange(new ImageGeneratingState());
     }, 800);
   }
@@ -363,10 +389,33 @@ export class ImageGeneratingState extends InteractionState {
   onEnter(context: StateContext): void {
     super.onEnter(context);
     
-    // 触发图片生成
     const sentence = context.currentWords.map(w => w.word).join(' ');
-    // scene 和 previousImage 需要从外部传入，这里简化处理
-    // 实际实现中，context 应该包含这些信息
+    const scene = context.aiResponse?.scene.type || 'default';
+    const previousImage = context.generatedImage;
+    
+    console.log(`[${this.name}] Generating image...`);
+    console.log(`[${this.name}] Sentence: "${sentence}"`);
+    console.log(`[${this.name}] Scene: ${scene}`);
+    console.log(`[${this.name}] Has previous image: ${!!previousImage}`);
+    
+    // 发起图片生成请求
+    const startTime = Date.now();
+    context.onGenerateImage(sentence, scene, previousImage)
+      .then(imageUrl => {
+        const duration = Date.now() - startTime;
+        console.log(`[${this.name}] Image generated in ${duration}ms`);
+        console.log(`[${this.name}] Image size: ${(imageUrl.length / 1024).toFixed(2)}KB`);
+        
+        context.generatedImage = imageUrl;
+        context.onStateChange(new PageCompleteState(imageUrl));
+      })
+      .catch(error => {
+        const duration = Date.now() - startTime;
+        console.error(`[${this.name}] Image generation error after ${duration}ms:`, error);
+        // 即使失败也继续，使用空图片
+        context.generatedImage = null;
+        context.onStateChange(new PageCompleteState(''));
+      });
   }
 
   getUI(): StateUIConfig {
@@ -386,7 +435,7 @@ export class ImageGeneratingState extends InteractionState {
   }
 
   onImageGenerationFailed(error: Error, context: StateContext): InteractionState {
-    console.error('[ImageGeneratingState] Image generation failed:', error);
+    console.error(`[${this.name}] Image generation failed:`, error);
     return new IdleState();
   }
 }
@@ -436,10 +485,12 @@ export class PageCompleteState extends InteractionState {
 export class InteractionStateMachine {
   private currentState: InteractionState;
   private context: StateContext;
+  private transitionCount = 0;
 
   constructor(context: StateContext) {
     this.context = context;
     this.currentState = new IdleState();
+    this.logStateInfo('INIT', this.currentState);
     this.currentState.onEnter(this.context);
   }
 
@@ -447,28 +498,63 @@ export class InteractionStateMachine {
    * 处理事件（使用访问者模式，无 if-else）
    */
   handleEvent(event: InteractionEvent): void {
-    console.log(`[StateMachine] Event: ${event.constructor.name} in state: ${this.currentState.name}`);
+    const eventName = event.constructor.name.replace('Event', '');
+    
+    console.log(`\n[StateMachine] ========================================`);
+    console.log(`[StateMachine] Event: ${eventName}`);
+    console.log(`[StateMachine] Current State: ${this.currentState.name}`);
+    console.log(`[StateMachine] UI: ${JSON.stringify(this.currentState.getUI())}`);
     
     // 使用访问者模式：event.accept(state) 会调用对应的 state.onXXX() 方法
     const newState = event.accept(this.currentState, this.context);
     
     if (newState !== this.currentState) {
+      console.log(`[StateMachine] State will change: ${this.currentState.name} -> ${newState.name}`);
       this.transitionTo(newState);
+    } else {
+      console.log(`[StateMachine] State unchanged: ${this.currentState.name}`);
     }
+    console.log(`[StateMachine] ========================================\n`);
   }
 
   /**
    * 转换到新状态
    */
   transitionTo(newState: InteractionState): void {
-    console.log(`[StateMachine] Transition: ${this.currentState.name} → ${newState.name}`);
+    this.transitionCount++;
     
+    console.log(`\n[StateMachine] ======== TRANSITION #${this.transitionCount} ========`);
+    console.log(`[StateMachine] FROM: ${this.currentState.name}`);
+    console.log(`[StateMachine] TO:   ${newState.name}`);
+    
+    // 退出旧状态
     this.currentState.onExit(this.context);
+    
+    // 进入新状态
+    const oldState = this.currentState;
     this.currentState = newState;
+    
+    this.logStateInfo('ENTER', newState);
     this.currentState.onEnter(this.context);
     
     // 通知外部状态变化
     this.context.onStateChange(newState);
+    
+    console.log(`[StateMachine] Transition complete: ${oldState.name} -> ${newState.name}\n`);
+  }
+
+  /**
+   * 记录状态详细信息
+   */
+  private logStateInfo(action: string, state: InteractionState): void {
+    const ui = state.getUI();
+    console.log(`[StateMachine] State Info (${action}):`);
+    console.log(`  Name: ${state.name}`);
+    console.log(`  Can Interact: ${ui.canInteract}`);
+    console.log(`  Dino Emoji: ${ui.dinoEmoji}`);
+    console.log(`  Status: ${ui.statusMessage || '(none)'}`);
+    console.log(`  Loading: ${ui.showLoading}`);
+    console.log(`  Options Disabled: ${ui.disableOptions}`);
   }
 
   /**
@@ -490,6 +576,16 @@ export class InteractionStateMachine {
    */
   canInteract(): boolean {
     return this.currentState.canInteract();
+  }
+
+  /**
+   * 获取状态机统计信息
+   */
+  getStats(): { currentState: string; transitionCount: number } {
+    return {
+      currentState: this.currentState.name,
+      transitionCount: this.transitionCount
+    };
   }
 }
 
