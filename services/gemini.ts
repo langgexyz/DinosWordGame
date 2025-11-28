@@ -9,7 +9,6 @@ export interface AIResponse {
   aiComment: string;
   scene: Scene;
   nextOptions: WordOption[];
-  englishTranslation?: string;
 }
 
 const SYSTEM_INSTRUCTION = `
@@ -334,8 +333,7 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
               },
               required: ["word", "emoji", "explanation", "willComplete"]
             }
-          },
-          englishTranslation: { type: Type.STRING }
+          }
         },
         required: ["aiComment", "nextOptions", "scene"]
       }
@@ -352,13 +350,11 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
   console.log('[gemini] Comment:', data.aiComment);
   console.log('[gemini] Options:', data.nextOptions?.map((opt: WordOption) => `"${opt.word}" (complete: ${opt.willComplete})`).join(', '));
   console.log('[gemini] Scene:', data.scene?.type);
-  console.log('[gemini] Translation:', data.englishTranslation || 'N/A');
   console.log('[gemini] ===================================\n');
 
   return {
     aiComment: data.aiComment,
     nextOptions: data.nextOptions || [],
-    englishTranslation: data.englishTranslation,
     scene: data.scene
   };
 };

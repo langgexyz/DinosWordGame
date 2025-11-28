@@ -147,8 +147,7 @@ const App: React.FC = () => {
         currentPage: {
           words: currentWords,
           scene: aiResponse.scene,
-          isComplete: false,  // Completion determined by user's option choice, not AI
-          translation: aiResponse.englishTranslation
+          isComplete: false  // Completion determined by user's option choice, not AI
         },
         ai: {
           comment: aiResponse.aiComment,
@@ -225,8 +224,7 @@ const App: React.FC = () => {
         currentPage: {
           words: [],
           scene: aiResponse.scene,
-          isComplete: false,  // Completion determined by user's option choice
-          translation: aiResponse.englishTranslation
+          isComplete: false  // Completion determined by user's option choice
         },
         ai: {
           comment: aiResponse.aiComment,
