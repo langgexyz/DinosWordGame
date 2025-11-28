@@ -91,6 +91,7 @@ export interface StateUIConfig {
 
 export abstract class InteractionState {
   abstract readonly name: string;
+  protected timerId: NodeJS.Timeout | null = null;
 
   /**
    * 进入状态时执行
@@ -100,10 +101,15 @@ export abstract class InteractionState {
   }
 
   /**
-   * 离开状态时执行
+   * 离开状态时执行（清理定时器）
    */
   onExit(context: StateContext): void {
     console.log(`[${this.name}] Exit`);
+    if (this.timerId) {
+      console.log(`[${this.name}] Clearing timer ${this.timerId}`);
+      clearTimeout(this.timerId);
+      this.timerId = null;
+    }
   }
 
   /**
@@ -222,8 +228,14 @@ export class UserSelectingState extends InteractionState {
     console.log(`[${this.name}] Will Complete: ${this.selectedOption.willComplete}`);
     console.log(`[${this.name}] Waiting 100ms for visual feedback...`);
     
+    // 清除可能存在的旧定时器
+    if (this.timerId) {
+      clearTimeout(this.timerId);
+    }
+    
     // 立即转换到下一个状态
-    setTimeout(() => {
+    this.timerId = setTimeout(() => {
+      this.timerId = null;
       if (this.selectedOption.willComplete) {
         // 句子完成
         console.log(`[${this.name}] Sentence complete -> SENTENCE_COMPLETE`);
@@ -319,8 +331,14 @@ export class AISpeakingState extends InteractionState {
     console.log(`[${this.name}] Will speak: "${this.aiResponse.aiComment}"`);
     console.log(`[${this.name}] Waiting 300ms before speaking...`);
     
+    // 清除可能存在的旧定时器
+    if (this.timerId) {
+      clearTimeout(this.timerId);
+    }
+    
     // 播放 AI 评论
-    setTimeout(() => {
+    this.timerId = setTimeout(() => {
+      this.timerId = null;
       console.log(`[${this.name}] Speaking now...`);
       context.onPlayAIComment(this.aiResponse.aiComment);
     }, 300);
@@ -360,8 +378,14 @@ export class SentenceCompleteState extends InteractionState {
     console.log(`[${this.name}] Sentence: "${sentence}"`);
     console.log(`[${this.name}] Waiting 800ms before generating image...`);
     
+    // 清除可能存在的旧定时器
+    if (this.timerId) {
+      clearTimeout(this.timerId);
+    }
+    
     // 短暂延迟后开始生成图片
-    setTimeout(() => {
+    this.timerId = setTimeout(() => {
+      this.timerId = null;
       console.log(`[${this.name}] Starting image generation -> IMAGE_GENERATING`);
       context.onStateChange(new ImageGeneratingState());
     }, 800);
