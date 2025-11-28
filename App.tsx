@@ -763,22 +763,30 @@ const App: React.FC = () => {
           {/* 右侧：交互区域（选项卡片） */}
           <div className="flex-1 md:max-w-xl flex flex-col">
             <GameOptions 
-              isComplete={gameState.currentPage.isComplete}
-              isGeneratingImage={gameState.ui.isGeneratingImage}
-              storyImage={gameState.ui.generatedImage}
-              englishTranslation={gameState.currentPage.words.map(w => w.word).join(' ')}
-              options={gameState.ai.nextOptions}
-              loading={gameState.ui.loading}
+              stateMachineUI={{
+                canInteract,
+                dinoEmoji: stateUI.dinoEmoji,
+                isLoading: gameState.ui.loading
+              }}
+              pageState={{
+                isComplete: gameState.currentPage.isComplete,
+                isGeneratingImage: gameState.ui.isGeneratingImage,
+                sentence: gameState.currentPage.words.map(w => w.word).join(' '),
+                image: gameState.ui.generatedImage
+              }}
+              aiState={{
+                comment: stateUI.statusMessage || gameState.ai.comment,
+                isSpeaking: isDinoSpeaking,
+                options: gameState.ai.nextOptions
+              }}
+              handlers={{
+                onOptionClick: handleOptionClick,
+                onContinue: continueStory,
+                onPlayComment: handlePlayDinoComment,
+                onPlaySentence: playCompletedSentence,
+                onImageClick: () => gameState.ui.generatedImage && setImagePreview(gameState.ui.generatedImage)
+              }}
               highlightedWord={highlightedWord}
-              onOptionClick={handleOptionClick}
-              onContinue={continueStory}
-              onImageClick={() => gameState.ui.generatedImage && setImagePreview(gameState.ui.generatedImage)}
-              onPlaySentence={playCompletedSentence}
-              aiComment={stateUI.statusMessage || gameState.ai.comment}
-              isDinoSpeaking={isDinoSpeaking}
-              onPlayComment={handlePlayDinoComment}
-              canInteract={canInteract}
-              dinoEmoji={stateUI.dinoEmoji}
             />
           </div>
         </div>
