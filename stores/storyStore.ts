@@ -72,7 +72,8 @@ export const useStoryStore = create<StoryStoreState>()(
           }
         };
       }
-    )
+    }
   )
+)
 );
 
