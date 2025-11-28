@@ -63,27 +63,41 @@ You are Dino 🦖, helping learners practice SPOKEN English through storytelling
 - 30%: Create new characters
 - Within story: Keep same character, use pronouns
 
+**Game Mechanic: Building Sentences Word-by-Word**
+
+The learner is BUILDING a sentence by ADDING one small piece at a time.
+Think of it like LEGO blocks - each block is small, and you add ONE block at a time.
+
+**Your Job:**
+Given the current incomplete sentence, provide 2 options for the NEXT small piece to add.
+
 **Response Format:**
 
 1. **aiComment**: Short story question (max 5 words)
 
-2. **nextOptions** (2 chunks):
-   - word: natural phrase ("the little", "ran quickly")
-   - emoji: EXPRESSIVE (🤏=small, 💪=big, 🏃💨=fast, 🐌=slow)
-   - explanation: simple English
-   - willComplete: BOOLEAN
+2. **nextOptions** (2 options):
+   Each option is ONE SMALL PIECE (1-3 words) to ADD to the current sentence.
+   
+   Think: "What's the next natural speaking unit?"
+   - Articles + adjectives: "a little", "the big"
+   - Verbs + adverbs: "ran quickly", "looked at"
+   - Prepositional phrases: "in the", "to the"
+   - Single words: "bear", "jumped", "happily"
+   
+   Each option has:
+   - word: the piece to add (1-3 words)
+   - emoji: visual hint
+   - explanation: simple English meaning
+   - willComplete: Will adding THIS piece complete the sentence?
 
-**willComplete Rules:**
-- Length guide: 1-2 words=never, 3-4=rarely, 5-6=often, 7+=usually
-- Semantic test: Would listener ask "and then?" → false
-- Balance: Prefer 1 complete + 1 continue option
+3. **willComplete Logic:**
+   After adding this piece, would the sentence feel complete to a listener?
+   - Complete: Listener feels satisfied
+   - Incomplete: Listener expects more
 
-3. **scene**: Update when location changes (forest/ocean/space/magic/home/school/park/playground/street/hospital/restaurant/library/shop)
+4. **scene**: Current location
 
-4. **characterInfo**: Only for FIRST sentence (name, type, emoji, description)
-
-**Story Flow:**
-Continue with pronouns (He/She/It) or time words (Then/Next/Suddenly), not "The/A"
+5. **characterInfo**: Only for first sentence (name, type, emoji, description)
 `;
 
 // ============================================
@@ -194,19 +208,14 @@ ${chunkContext}
 Current sentence being built: "${currentText}"
 Words count: ${input.currentWords.length}
 
-This is the FIRST sentence. You may use articles: The/A/Once/One
+This is the FIRST sentence (empty).
 
-**CRITICAL: This is the START of a sentence (empty). Provide the BEGINNING chunks:**
-- Example: "A little", "The big", "Once upon"
-- NOT complete sentences like "climbed a tree"
-- User will build the sentence step by step
-- Follow the Progressive Completeness guidelines (1-2 words = NEVER complete)
+Provide the FIRST small piece to start the sentence (typically an article + adjective or "Once upon").
 
 Tasks:
 1. Determine scene
-2. Generate 2 nextOptions that START a sentence
-3. Apply willComplete based on length (1-2 words → false, 3+ words → semantic test)
-4. IMPORTANT: Detect and provide characterInfo (name, type, emoji, description) for the main character
+2. Provide 2 options for the first piece (e.g., "A little", "The big", "Once upon")
+3. Detect and provide characterInfo for the main character
     `;
   }
 }
@@ -230,15 +239,14 @@ class FirstSentenceBuildingState extends StoryCreationState {
     return `
 ${context}
 
-Current sentence being built: "${currentText}"
-Words count: ${input.currentWords.length}
+Current sentence: "${currentText}"
 
-Provide next word options to continue this sentence.
+What's the NEXT small piece (1-3 words) to add?
 
 Tasks:
 1. Determine scene
-2. Generate 2 nextOptions
-3. Check if complete (semantically complete sentence, not just word count)
+2. Provide 2 options for the next piece to add
+3. For each option, decide: would adding it complete the sentence?
     `;
   }
 }
@@ -263,27 +271,17 @@ class NewSentenceStartState extends StoryCreationState {
     return `
 ${context}
 
-Current sentence being built: "${currentText}"
-Words count: ${input.currentWords.length}
+This is a NEW sentence continuing from: "${lastSentence}"
 
-IMPORTANT: This is a NEW sentence continuing from "${lastSentence}".
+Current sentence: "${currentText}"
 
-MUST follow this strict priority:
-1st choice - PRONOUN: If the last sentence has a clear subject (person/animal/thing), use: It, She, He, They
-2nd choice - TIME/TRANSITION: If pronoun doesn't fit, use: Then,/Next,/Suddenly,/Later,/Soon,/Meanwhile,
-3rd choice - ONLY if neither pronoun nor time word works: use a noun WITHOUT article (e.g., "Dragon" not "The dragon")
-
-FORBIDDEN: Never start with "The" or "A" when continuing a story!
-
-Example:
-- After "The dragon flew fast" → Options: "It" vs "Suddenly,"
-- After "A girl opened the door" → Options: "She" vs "Then,"
-- After "They played together" → Options: "Next," vs "Later,"
+Provide the FIRST piece for this new sentence.
+Prefer: pronouns (He/She/It/They) or time words (Then/Next/Suddenly).
+Avoid: "The" or "A" (story already started).
 
 Tasks:
 1. Determine scene
-2. Generate 2 nextOptions
-3. Check if complete (semantically complete sentence, not just word count)
+2. Provide 2 options for the first piece of the new sentence
     `;
   }
 }
