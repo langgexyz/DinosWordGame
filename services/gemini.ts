@@ -336,10 +336,15 @@ Words count: ${input.currentWords.length}
 
 This is the FIRST sentence. You may use articles: The/A/Once/One
 
+**CRITICAL: This is the START of a sentence (empty). Provide the BEGINNING chunks:**
+- Example: "A little", "The big", "Once upon"
+- NOT complete sentences like "climbed a tree"
+- User will build the sentence step by step
+
 Tasks:
 1. Determine scene
-2. Generate 2 nextOptions (consider chunk context if provided)
-3. Check if complete (semantically complete sentence, not just word count)
+2. Generate 2 nextOptions that START a sentence (NOT complete sentences)
+3. Both options should have willComplete: false (sentence just starting)
 4. IMPORTANT: Detect and provide characterInfo (name, type, emoji, description) for the main character
     `;
   }
