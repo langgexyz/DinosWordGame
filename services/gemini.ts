@@ -63,9 +63,10 @@ You are Dino 🦖, helping 4-year-olds practice SPOKEN English through interacti
    
    NEVER mark as complete if it ends with: to/in/on/at/the/a/and/or/with
 
-3. isComplete: Derived from the options
-   - If ANY option has willComplete=true, then isComplete=true
-   - Otherwise, isComplete=false
+3. isComplete: Is the CURRENT sentence already complete?
+   - Check if the sentence so far expresses a complete thought
+   - This is DIFFERENT from willComplete (which is about future state)
+   - If current sentence is complete, user should NOT see more options
 
 4. Scene: Update when location changes
 
@@ -358,13 +359,13 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
   console.log('[gemini] Translation:', data.englishTranslation || 'N/A');
   console.log('[gemini] ===================================\n');
 
-  // Derive isComplete from options: if ANY option can complete the sentence, mark as complete
-  const finalIsComplete = data.nextOptions?.some((opt: WordOption) => opt.willComplete) || false;
-  
+  // isComplete should reflect whether the CURRENT sentence is already complete
+  // NOT whether the next options CAN complete it
+  // AI should set this based on the current state, not future possibilities
   return {
     aiComment: data.aiComment,
     nextOptions: data.nextOptions || [],
-    isComplete: finalIsComplete,
+    isComplete: data.isComplete,  // Trust AI's judgment about current state
     englishTranslation: data.englishTranslation,
     scene: data.scene
   };
