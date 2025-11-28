@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { WordOption, Scene, StoryPage, CharacterInfo, CharacterUsage, SceneUsage } from "../types";
+import { WordOption, Scene, StoryPage, CharacterInfo, CharacterUsage, SceneUsage, ChunkUsage } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -19,6 +19,15 @@ export interface StoryHistory {
   totalStories: number;          // 总故事数
 }
 
+// Chunk 学习上下文（传递给 AI）
+export interface ChunkContext {
+  masteredChunks: string[];      // 已掌握的 chunks (10+次)
+  familiarChunks: string[];      // 熟悉的 chunks (6-10次)
+  learningChunks: string[];      // 学习中的 chunks (3-5次)
+  newChunks: string[];           // 新 chunks (1-2次)
+  chunksForReview: string[];     // 需要复习的 chunks
+}
+
 /**
  * AI Prompt 职责清单：
  * 
@@ -34,26 +43,32 @@ export interface StoryHistory {
  * - 让 AI 根据语义理解，而非死记规则
  */
 const SYSTEM_INSTRUCTION = `
-You are Dino 🦖, helping 4-year-olds practice SPOKEN English through interactive storytelling.
+You are Dino 🦖, helping learners practice SPOKEN English through interactive storytelling.
 
-**Product Goal: ORAL PRACTICE (not vocabulary learning)**
-- Children speak natural, fluent English phrases
-- Think: How would a native 4-year-old English speaker SAY this?
+**Target Audience:**
+- Learners who want to improve English speaking (any age, any level)
+- Focus: Natural spoken English chunks, not vocabulary memorization
+- Goal: Build fluency through repeated practice of natural language patterns
+
+**Product Goal: ORAL PRACTICE through Chunk-Based Learning**
+- Learners speak natural, fluent English phrases (chunks)
+- Think: How would a native English speaker SAY this?
+- Each chunk is tracked and reinforced through repetition
 
 **Output Language: ENGLISH ONLY**
 
-**CRITICAL - CHILD SAFETY & EDUCATION:**
-This is for 4-year-old children. Story content must be SAFE and EDUCATIONAL.
+**CRITICAL - CONTENT SAFETY:**
+Story content must be SAFE and appropriate for all learners (including children).
 
 NEVER suggest options that encourage dangerous behaviors:
 - Avoid: going into water alone, climbing high without supervision
 - Avoid: touching fire, hot things, sharp objects, chemicals
 - Avoid: running into streets, approaching strangers
-- Avoid: doing risky things without parents/adults
+- Avoid: doing risky things without supervision
 
 INSTEAD, guide stories toward:
-- Safe play with friends or family
-- Learning, exploring with adult guidance
+- Safe activities with friends or family
+- Learning, exploring with guidance
 - Kindness, helping others, sharing
 - Nature observation (from safe distance)
 - Imaginative play in safe environments
@@ -61,11 +76,48 @@ INSTEAD, guide stories toward:
 If the story naturally goes toward a risky situation, redirect with safe alternatives.
 Example: Instead of "jumped into the river" → offer "played near the river" or "saw fish in the river"
 
+**Chunk-Based Learning Strategy (CORE FEATURE):**
+
+When you receive CHUNK CONTEXT (learner's practice data), use this strategy:
+
+1. **Mastered Chunks** (10+ times used):
+   - These are SOLID. Use them naturally in stories.
+   - Example: If "a little" is mastered → feel free to use it
+
+2. **Familiar Chunks** (6-10 times):
+   - REINFORCE these! Use them in new contexts.
+   - Example: If "ran quickly" is familiar → create situations where character runs
+
+3. **Learning Chunks** (3-5 times):
+   - PRACTICE these! Offer them as options frequently.
+   - Example: If "looked at" is learning → provide it as a choice
+
+4. **New Chunks** (1-2 times):
+   - INTRODUCE SLOWLY. Balance with familiar chunks.
+   - Ratio: 70% familiar/learning, 30% new
+
+5. **Chunks for Review** (not used recently):
+   - BRING BACK these chunks in natural contexts
+   - Example: If "went to" hasn't been used in 10 stories → offer it
+
+**Option Generation Strategy:**
+
+When providing nextOptions (2 choices):
+- Option A: Familiar/Learning chunk (reinforce) 70%
+- Option B: New chunk OR Review chunk (expand/refresh) 30%
+
+Example:
+Current: "The bear"
+Chunk Context: familiar=["ran quickly"], new=["found a friend"]
+Options:
+1. "ran quickly" (familiar - reinforce) ✅
+2. "found a friend" (new - expand) ✅
+
 **Character & Scene Philosophy (Data-Driven Creativity):**
 
 1. **First Story (No History Provided)**:
    - You are FREE to create any character and scene
-   - Examples: "A little bear", "A tiny fish", "A brave girl", "A magical dragon"
+   - Examples: "A little bear", "A tiny fish", "A brave person", "A magical dragon"
    - Be creative! No restrictions!
    - Detect and report the character in your response
 
@@ -93,7 +145,7 @@ Example: Instead of "jumped into the river" → offer "played near the river" or
 **Your Responsibilities:**
 
 1. aiComment: Ask a SHORT (max 5 words), story-driven question
-   - Engage the child's imagination with the story
+   - Engage the learner's imagination with the story
    - NOT generic prompts like "pick one" or "which word"
 
 2. nextOptions: Provide 2 NATURAL LANGUAGE CHUNKS
@@ -106,7 +158,7 @@ Example: Instead of "jumped into the river" → offer "played near the river" or
    **Each option needs 4 fields:**
    - word: the phrase/chunk (can be multi-word)
    - emoji: visual hint
-   - explanation: simple English definition for 4-year-olds
+   - explanation: simple English definition (easy to understand)
    - willComplete: BOOLEAN - Critical decision!
    
    **willComplete Decision (Semantic Completeness Test):**
@@ -114,7 +166,7 @@ Example: Instead of "jumped into the river" → offer "played near the river" or
    Core Principle: A sentence is complete when a listener doesn't naturally ask "AND THEN?" or "WHAT/WHERE/HOW?"
    
    **The Native Speaker Test:**
-   Imagine saying this sentence to a 4-year-old.
+   Imagine saying this sentence to a listener.
    - Would they feel satisfied? → Complete ✅
    - Would they ask "and then what?" "where?" "how?" → Incomplete ❌
    
@@ -154,6 +206,7 @@ interface PromptInput {
   currentWords: WordOption[];
   history: StoryPage[];
   usageHistory?: StoryHistory;  // 可选的使用历史数据
+  chunkContext?: ChunkContext;   // 可选的 Chunk 学习上下文
 }
 
 // 抽象状态类
@@ -196,6 +249,35 @@ ${charList}
 PREFERENCE: Consider using one of these familiar characters (70% recommended) or create a new one (30%).
 `;
   }
+  
+  // 辅助方法：构建 Chunk 学习上下文
+  protected buildChunkContext(chunkContext?: ChunkContext): string {
+    if (!chunkContext) {
+      return '';
+    }
+    
+    let context = '\n**CHUNK LEARNING CONTEXT:**\n';
+    
+    if (chunkContext.masteredChunks.length > 0) {
+      context += `Mastered (10+): ${chunkContext.masteredChunks.slice(0, 5).join(', ')}\n`;
+    }
+    
+    if (chunkContext.familiarChunks.length > 0) {
+      context += `Familiar (6-10): ${chunkContext.familiarChunks.slice(0, 5).join(', ')}\n`;
+    }
+    
+    if (chunkContext.learningChunks.length > 0) {
+      context += `Learning (3-5): ${chunkContext.learningChunks.slice(0, 5).join(', ')}\n`;
+    }
+    
+    if (chunkContext.chunksForReview.length > 0) {
+      context += `Need Review: ${chunkContext.chunksForReview.join(', ')}\n`;
+    }
+    
+    context += '\nSTRATEGY: Prioritize familiar/learning chunks (70%), introduce new/review chunks (30%)\n';
+    
+    return context;
+  }
 }
 
 // 状态1: 新故事第一句开始
@@ -213,11 +295,13 @@ class FirstSentenceStartState extends StoryCreationState {
   buildPrompt(input: PromptInput): string {
     const context = this.buildContext(input.history);
     const historyContext = this.buildHistoryContext(input.usageHistory);
+    const chunkContext = this.buildChunkContext(input.chunkContext);
     const currentText = input.currentWords.map(w => w.word).join(' ');
     
     return `
 ${context}
 ${historyContext}
+${chunkContext}
 Current sentence being built: "${currentText}"
 Words count: ${input.currentWords.length}
 
@@ -225,7 +309,7 @@ This is the FIRST sentence. You may use articles: The/A/Once/One
 
 Tasks:
 1. Determine scene
-2. Generate 2 nextOptions
+2. Generate 2 nextOptions (consider chunk context if provided)
 3. Check if complete (semantically complete sentence, not just word count)
 4. IMPORTANT: Detect and provide characterInfo (name, type, emoji, description) for the main character
     `;
@@ -369,12 +453,14 @@ class StateFactory {
 export const fetchGameStep = async (
   currentWords: WordOption[], 
   history: StoryPage[] = [],
-  usageHistory?: StoryHistory
+  usageHistory?: StoryHistory,
+  chunkContext?: ChunkContext
 ): Promise<AIResponse> => {
   const input: PromptInput = {
     currentWords,
     history,
-    usageHistory
+    usageHistory,
+    chunkContext
   };
   
   // 状态模式：state1 + input → state2
@@ -396,6 +482,23 @@ export const fetchGameStep = async (
     usageHistory.characters.slice(0, 3).forEach(char => {
       console.log(`[gemini]   - "${char.characterName}" ${char.emoji || ''} (used ${char.totalStories} times)`);
     });
+  }
+  
+  // 打印 Chunk 学习上下文
+  if (chunkContext) {
+    console.log('[gemini] Chunk Learning Context:');
+    if (chunkContext.masteredChunks.length > 0) {
+      console.log(`[gemini]   Mastered: ${chunkContext.masteredChunks.slice(0, 5).join(', ')}`);
+    }
+    if (chunkContext.familiarChunks.length > 0) {
+      console.log(`[gemini]   Familiar: ${chunkContext.familiarChunks.slice(0, 5).join(', ')}`);
+    }
+    if (chunkContext.learningChunks.length > 0) {
+      console.log(`[gemini]   Learning: ${chunkContext.learningChunks.slice(0, 5).join(', ')}`);
+    }
+    if (chunkContext.chunksForReview.length > 0) {
+      console.log(`[gemini]   Review: ${chunkContext.chunksForReview.join(', ')}`);
+    }
   }
   
   if (history.length > 0) {
@@ -666,31 +769,15 @@ export const generateStoryTitle = async (pages: StoryPage[]): Promise<string> =>
 function generateFallbackTitle(pages: StoryPage[]): string {
   const sceneName = getMostFrequentScene(pages);
   const timestamp = formatTimestamp(Date.now());
-  return `${sceneName}冒险 ${timestamp}`;
+  // 首字母大写
+  const sceneTitle = sceneName.charAt(0).toUpperCase() + sceneName.slice(1);
+  return `${sceneTitle} Adventure ${timestamp}`;
 }
 
 /**
- * 获取最常见的场景名称
+ * 获取最常见的场景类型（英文）
  */
 function getMostFrequentScene(pages: StoryPage[]): string {
-  const SCENE_NAMES: Record<string, string> = {
-    forest: '森林',
-    ocean: '海洋',
-    space: '太空',
-    magic: '魔法',
-    city: '城市',
-    home: '家',
-    school: '学校',
-    park: '公园',
-    playground: '游乐场',
-    street: '街道',
-    hospital: '医院',
-    restaurant: '餐厅',
-    library: '图书馆',
-    shop: '商店',
-    default: '奇妙'
-  };
-
   const sceneCount = new Map<string, number>();
   
   pages.forEach(page => {
@@ -699,7 +786,7 @@ function getMostFrequentScene(pages: StoryPage[]): string {
   });
   
   let maxCount = 0;
-  let mainScene = 'default';
+  let mainScene = 'adventure';  // 默认英文
   
   sceneCount.forEach((count, scene) => {
     if (count > maxCount) {
@@ -708,7 +795,7 @@ function getMostFrequentScene(pages: StoryPage[]): string {
     }
   });
   
-  return SCENE_NAMES[mainScene] ?? SCENE_NAMES['default'] ?? '奇妙';
+  return mainScene;  // 直接返回英文场景类型
 }
 
 /**
@@ -716,7 +803,7 @@ function getMostFrequentScene(pages: StoryPage[]): string {
  */
 function generateDefaultTitle(): string {
   const timestamp = formatTimestamp(Date.now());
-  return `我的绘本 ${timestamp}`;
+  return `My Story ${timestamp}`;
 }
 
 /**

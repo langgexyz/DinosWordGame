@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { GameState, WordOption, StoryPage, Scene, CreationPhase, Story, CharacterInfo } from './types';
-import { fetchGameStep, generateStoryImage, generateStoryTitle, AIResponse, StoryHistory } from './services/gemini';
+import { fetchGameStep, generateStoryImage, generateStoryTitle, AIResponse, StoryHistory, ChunkContext } from './services/gemini';
 import { createSpeechService } from './services/speech';
 import { GameHeader } from './components/GameHeader';
 import { SentenceDisplay } from './components/SentenceDisplay';
@@ -13,6 +13,7 @@ import { RefreshCw } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useStoryStore } from './stores/storyStore';
 import { useUsageStore } from './stores/usageStore';
+import { useChunkStore } from './stores/chunkStore';
 import { generateStoryCover } from './data/storyCover';
 
 // Theme configurations for different scenes
@@ -96,6 +97,13 @@ const App: React.FC = () => {
     getMostUsedScenes 
   } = useUsageStore();
   
+  // Chunk 学习操作
+  const {
+    recordChunk,
+    getChunksByProficiency,
+    suggestChunksForReview
+  } = useChunkStore();
+  
   // 当前故事的角色信息
   const [currentCharacter, setCurrentCharacter] = useState<CharacterInfo | null>(null);
 
@@ -151,6 +159,8 @@ const App: React.FC = () => {
       
       // 准备使用历史数据（仅在新故事时传递）
       let usageHistory: StoryHistory | undefined;
+      let chunkContext: ChunkContext | undefined;
+      
       if (completedPages.length === 0 && currentWords.length === 0) {
         // 新故事开始，传递历史数据
         usageHistory = {
@@ -160,10 +170,20 @@ const App: React.FC = () => {
         };
       }
       
+      // 准备 Chunk 学习上下文（每次都传递）
+      chunkContext = {
+        masteredChunks: getChunksByProficiency('mastered').map(c => c.chunk),
+        familiarChunks: getChunksByProficiency('familiar').map(c => c.chunk),
+        learningChunks: getChunksByProficiency('learning').map(c => c.chunk),
+        newChunks: getChunksByProficiency('new').map(c => c.chunk),
+        chunksForReview: suggestChunksForReview()
+      };
+      
       const aiResponse: AIResponse = await fetchGameStep(
         currentWords,
         completedPages,
-        usageHistory
+        usageHistory,
+        chunkContext
       );
       
       // 如果 AI 返回了角色信息，记录它
@@ -302,6 +322,14 @@ const App: React.FC = () => {
     // 累加播放：读出从头开始的完整句子，增强记忆
     const fullText = newWords.map(w => w.word).join(' ');
     speechService.speak(fullText, "en-US");
+    
+    // 记录 Chunk 使用（核心学习功能）
+    const allChunksInSentence = newWords.map(w => w.word);
+    recordChunk(
+      option.word,           // 当前选择的 chunk
+      fullText,              // 完整句子上下文
+      allChunksInSentence    // 同句子中的其他 chunks
+    );
 
     // 关键：根据用户选择的 option 的 willComplete 来决定句子是否完成
     // 而不是等 AI 返回后再判断

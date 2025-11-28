@@ -154,3 +154,41 @@ export interface UsageStatistics {
   totalStories: number;                        // 总故事数
   totalPages: number;                          // 总页数
 }
+
+// ============================================
+// Chunk 学习系统（核心功能）
+// ============================================
+
+// 熟练度等级
+export type ProficiencyLevel = 'new' | 'learning' | 'familiar' | 'mastered';
+
+// Chunk 使用记录（每个短语/单词的学习数据）
+export interface ChunkUsage {
+  chunk: string;                    // 短语/单词，如 "a little", "ran quickly"
+  category: 'phrase' | 'word';      // 类型：短语 or 单词
+  
+  // 使用统计
+  totalUsed: number;                // 总使用次数
+  lastUsed: number;                 // 最后使用时间
+  firstUsed: number;                // 首次使用时间
+  
+  // 学习数据
+  contexts: string[];               // 出现的上下文（最多保留5个）
+  relatedChunks: string[];          // 经常一起出现的 chunks
+  
+  // 熟练度评估
+  proficiencyLevel: ProficiencyLevel;
+  // new: 1-2次
+  // learning: 3-5次
+  // familiar: 6-10次
+  // mastered: 10+次
+}
+
+// Chunk 统计汇总
+export interface ChunkStatistics {
+  totalChunks: number;              // 总 chunk 数
+  newChunks: number;                // 新 chunks (1-2次)
+  learningChunks: number;           // 学习中 (3-5次)
+  familiarChunks: number;           // 熟悉 (6-10次)
+  masteredChunks: number;           // 掌握 (10+次)
+}
