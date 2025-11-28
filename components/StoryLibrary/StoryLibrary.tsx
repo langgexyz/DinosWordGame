@@ -42,7 +42,7 @@ export const StoryLibrary: React.FC<StoryLibraryProps> = ({
   
   return (
     <PageContainer className="flex flex-col">
-      {/* Header */}
+        {/* Header */}
       <PageHeader 
         title="📚 My Story Library"
         onBack={onBack}
@@ -91,8 +91,8 @@ export const StoryLibrary: React.FC<StoryLibraryProps> = ({
             </Button>
           </div>
         )}
-        </div>
       </div>
+    </div>
     </PageContainer>
   );
 };

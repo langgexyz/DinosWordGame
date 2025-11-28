@@ -47,57 +47,55 @@ You are Dino 🦖, helping learners practice SPOKEN English through storytelling
 
 **Core Principles:**
 1. Output: ENGLISH ONLY
-2. Goal: Natural spoken chunks (how natives SAY it)
+2. Goal: Teach formulaic sequences (lexical chunks) through oral practice
 3. Safety: No dangerous behaviors (water alone, fire, heights, strangers)
-4. Chunks: Track and reinforce through repetition
+4. Learning: Track and reinforce chunks through repetition
 
-**Chunk Strategy (if context provided):**
-- Mastered (10+): Use naturally
+**Formulaic Sequence Strategy (if context provided):**
+- Mastered (10+): Use naturally in stories
 - Familiar (6-10): Reinforce in new contexts  
-- Learning (3-5): Offer as options (70%)
-- New (1-2): Introduce slowly (30%)
-- Review: Bring back old chunks
+- Learning (3-5): Prioritize as options (70%)
+- New (1-2): Introduce gradually (30%)
+- Review: Recycle underused sequences
 
 **Character Strategy (if history provided):**
 - 70%: Reuse familiar characters ("The little bear")
 - 30%: Create new characters
 - Within story: Keep same character, use pronouns
 
-**Game Mechanic: Building Sentences Word-by-Word**
+**Game Mechanic: Formulaic Sequence Learning**
 
-The learner is BUILDING a sentence by ADDING one small piece at a time.
-Think of it like LEGO blocks - each block is small, and you add ONE block at a time.
+The learner builds sentences by adding ONE LEXICAL CHUNK at a time.
+
+**What is a Lexical Chunk?**
+A formulaic sequence that native speakers use as a single unit:
+- Collocations: "a little", "ran quickly", "looked at"
+- Fixed phrases: "once upon", "a long time"
+- Verb phrases: "lived in", "went to"
+- Prepositional phrases: "in the forest", "on the table"
 
 **Your Job:**
-Given the current incomplete sentence, provide 2 options for the NEXT small piece to add.
+Provide the NEXT lexical chunk to add to the current sentence.
 
 **Response Format:**
 
 1. **aiComment**: Short story question (max 5 words)
 
-2. **nextOptions** (2 options):
-   Each option is ONE SMALL PIECE (1-3 words) to ADD to the current sentence.
-   
-   Think: "What's the next natural speaking unit?"
-   - Articles + adjectives: "a little", "the big"
-   - Verbs + adverbs: "ran quickly", "looked at"
-   - Prepositional phrases: "in the", "to the"
-   - Single words: "bear", "jumped", "happily"
+2. **nextOptions** (2 lexical chunks):
+   Each option is ONE formulaic sequence (1-3 words) to add.
    
    Each option has:
-   - word: the piece to add (1-3 words)
+   - word: the lexical chunk (how natives say it as a unit)
    - emoji: visual hint
    - explanation: simple English meaning
-   - willComplete: Will adding THIS piece complete the sentence?
+   - willComplete: Would adding this chunk complete the sentence?
 
 3. **willComplete Logic:**
-   After adding this piece, would the sentence feel complete to a listener?
-   - Complete: Listener feels satisfied
-   - Incomplete: Listener expects more
+   After adding this chunk, is the sentence semantically complete?
 
 4. **scene**: Current location
 
-5. **characterInfo**: Only for first sentence (name, type, emoji, description)
+5. **characterInfo**: Only for first sentence
 `;
 
 // ============================================
@@ -167,12 +165,12 @@ PREFERENCE: Consider using one of these familiar characters (70% recommended) or
     
     if (chunkContext.familiarChunks.length > 0) {
       context += `Familiar (6-10): ${chunkContext.familiarChunks.slice(0, 5).join(', ')}\n`;
-    }
-    
+  }
+  
     if (chunkContext.learningChunks.length > 0) {
       context += `Learning (3-5): ${chunkContext.learningChunks.slice(0, 5).join(', ')}\n`;
-    }
-    
+  }
+  
     if (chunkContext.chunksForReview.length > 0) {
       context += `Need Review: ${chunkContext.chunksForReview.join(', ')}\n`;
     }
@@ -210,11 +208,11 @@ Words count: ${input.currentWords.length}
 
 This is the FIRST sentence (empty).
 
-Provide the FIRST small piece to start the sentence (typically an article + adjective or "Once upon").
+Provide the FIRST lexical chunk to start the sentence.
 
 Tasks:
 1. Determine scene
-2. Provide 2 options for the first piece (e.g., "A little", "The big", "Once upon")
+2. Provide 2 formulaic sequences (e.g., "A little", "The big", "Once upon")
 3. Detect and provide characterInfo for the main character
     `;
   }
@@ -241,16 +239,16 @@ ${context}
 
 Current sentence: "${currentText}"
 
-What's the NEXT small piece (1-3 words) to add?
+Provide the NEXT lexical chunk to add.
 
 Tasks:
 1. Determine scene
-2. Provide 2 options for the next piece to add
-3. For each option, decide: would adding it complete the sentence?
+2. Provide 2 formulaic sequences as options
+3. For each, decide: would adding it complete the sentence?
     `;
+    }
   }
-}
-
+  
 // 状态3: 新句子开始（续写故事）
 class NewSentenceStartState extends StoryCreationState {
   readonly stateName = 'NewSentenceStart';
@@ -275,13 +273,12 @@ This is a NEW sentence continuing from: "${lastSentence}"
 
 Current sentence: "${currentText}"
 
-Provide the FIRST piece for this new sentence.
-Prefer: pronouns (He/She/It/They) or time words (Then/Next/Suddenly).
-Avoid: "The" or "A" (story already started).
+Provide the FIRST lexical chunk for this new sentence.
+Prefer: pronouns or temporal connectors (He/She/It/Then/Next/Suddenly).
 
 Tasks:
 1. Determine scene
-2. Provide 2 options for the first piece of the new sentence
+2. Provide 2 formulaic sequences to start the new sentence
     `;
   }
 }
@@ -344,7 +341,7 @@ class StateFactory {
 // ============================================
 
 export const fetchGameStep = async (
-  currentWords: WordOption[], 
+  currentWords: WordOption[],
   history: StoryPage[] = [],
   usageHistory?: StoryHistory,
   chunkContext?: ChunkContext
@@ -359,7 +356,7 @@ export const fetchGameStep = async (
   // 状态模式：state1 + input → state2
   const currentState = StateFactory.createInitialState(input);
   const nextState = currentState.process(input);
-  
+
   // 使用当前状态生成 Prompt
   const prompt = currentState.buildPrompt(input);
 
@@ -466,7 +463,7 @@ export const fetchGameStep = async (
     console.log('[gemini] Character:', data.characterInfo.name, data.characterInfo.emoji || '');
   }
   console.log('[gemini] ===================================\n');
-
+  
   return {
     aiComment: data.aiComment,
     nextOptions: data.nextOptions || [],
@@ -476,7 +473,7 @@ export const fetchGameStep = async (
 };
 
 export const generateStoryImage = async (
-  sentence: string, 
+  sentence: string,
   sceneType: string, 
   storyHistory: StoryPage[] = []
 ): Promise<string | null> => {
@@ -647,7 +644,7 @@ export const generateStoryTitle = async (pages: StoryPage[]): Promise<string> =>
     
     if (title && title.length > 0 && title.length < 20) {
       return title;
-    }
+  }
   } catch (error) {
     console.warn('AI生成标题失败，使用默认策略', error);
   }

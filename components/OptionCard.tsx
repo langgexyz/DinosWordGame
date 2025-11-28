@@ -66,13 +66,13 @@ export const OptionCard: React.FC<OptionCardProps> = ({ option, onClick, disable
       )}>
         {option.willComplete ? (
           <>
-            <span>✓</span>
-            <span className="hidden sm:inline">Finish</span>
+            <span>✨</span>
+            <span className="hidden sm:inline">Done</span>
           </>
         ) : (
           <>
             <span>→</span>
-            <span className="hidden sm:inline">Continue</span>
+            <span className="hidden sm:inline">More</span>
           </>
         )}
       </div>

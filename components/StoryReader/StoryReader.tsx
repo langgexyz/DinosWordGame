@@ -116,18 +116,18 @@ export const StoryReader: React.FC<StoryReaderProps> = ({ story, onClose, onCont
           <>
             {/* 继续创作按钮 */}
             {onContinueEdit && (
-              <button 
+        <button 
                 onClick={() => onContinueEdit(story)}
                 className="px-2 md:px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs md:text-sm font-bold rounded-full hover:scale-105 active:scale-95 transition-transform shadow-md"
-              >
+        >
                 ✍️ Continue
-              </button>
+        </button>
             )}
             
             {/* 页码 */}
             <span className="text-xs md:text-sm text-slate-500 font-medium min-w-[3rem] text-right">
               {currentPageIndex + 1}/{totalPages}
-            </span>
+        </span>
           </>
         }
       />
@@ -156,7 +156,7 @@ export const StoryReader: React.FC<StoryReaderProps> = ({ story, onClose, onCont
               page={currentPage}
               onPlayAudio={playCurrentPage}
               isPlaying={isPlaying}
-            />
+              />
           </motion.div>
         </AnimatePresence>
       </div>

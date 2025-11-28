@@ -54,7 +54,7 @@ export const GameOptions: React.FC<GameOptionsProps> = ({
               <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left">
                 <div className="flex items-center gap-2 text-orange-600 mb-2">
                   <Star className="w-5 h-5 md:w-6 md:h-6 fill-orange-500 animate-pulse" />
-                  <h2 className="text-xl md:text-2xl font-black">Creating your story...</h2>
+                  <h2 className="text-xl md:text-2xl font-black">Painting your page... 🎨</h2>
                 </div>
                 <p className="text-slate-700 text-lg md:text-xl font-bold leading-snug">
                   "{englishTranslation}"
@@ -77,7 +77,7 @@ export const GameOptions: React.FC<GameOptionsProps> = ({
               <div className="flex-1 flex flex-col items-center md:items-start text-center md:text-left h-full justify-center">
                 <div className="flex items-center gap-2 text-orange-600 mb-1 md:mb-2">
                   <Star className="w-5 h-5 md:w-6 md:h-6 fill-orange-500" />
-                  <h2 className="text-xl md:text-2xl font-black uppercase">Great Job!</h2>
+                  <h2 className="text-xl md:text-2xl font-black uppercase">Amazing! ✨</h2>
                 </div>
                 <div className="relative w-full mb-4">
                   <p className="text-slate-700 text-lg md:text-2xl font-bold leading-snug pr-12">
