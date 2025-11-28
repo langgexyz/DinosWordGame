@@ -50,7 +50,10 @@ You are Dino 🦖, helping 4-year-olds practice SPOKEN English through interacti
    - emoji: visual hint
    - explanation: simple definition (what does this phrase mean?)
 
-3. isComplete: Mark sentence complete when it expresses a full thought
+3. isComplete: Mark sentence complete ONLY when:
+   - Expresses a complete thought (subject + verb + object/complement)
+   - Ends with a meaningful word (noun/verb/adjective)
+   - NOT ending with: prepositions (in/on/at/to), articles (the/a), conjunctions (and/or)
 
 4. Scene: Update when location changes
 
@@ -342,13 +345,19 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
   console.log('Translation:', data.englishTranslation || 'N/A');
   console.log('====================================\n');
 
-  // Fallback guard: Ensure isComplete is false if specific last words are used, regardless of what AI says
-  const lastWord = currentWords.length > 0 ? currentWords[currentWords.length - 1].word.toLowerCase() : "";
-  const forbiddenEndings = ['and', 'or', 'but', 'with', 'the', 'a', 'an', 'my', 'his', 'her', 'their', 'of', 'to', 'in', 'on', 'at'];
-  
+  // Fallback guard: Ensure isComplete is false if sentence ends with forbidden words
   let finalIsComplete = data.isComplete;
-  if (forbiddenEndings.includes(lastWord)) {
+  
+  if (currentWords.length > 0) {
+    const lastPhrase = currentWords[currentWords.length - 1].word.toLowerCase();
+    // Get the actual last word from the phrase (e.g., "lived in" → "in")
+    const actualLastWord = lastPhrase.trim().split(/\s+/).pop() || "";
+    
+    const forbiddenEndings = ['and', 'or', 'but', 'with', 'the', 'a', 'an', 'my', 'his', 'her', 'their', 'of', 'to', 'in', 'on', 'at'];
+    
+    if (forbiddenEndings.includes(actualLastWord)) {
       finalIsComplete = false;
+    }
   }
   
   return {
