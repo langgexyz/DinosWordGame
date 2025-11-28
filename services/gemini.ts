@@ -289,20 +289,20 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
   const prompt = currentState.buildPrompt(input);
 
   // 打印给 AI 的完整上下文
-  console.log('\n[gemini] ========== 📤 AI Request Context ==========');
-  console.log('[gemini] 🎯 Current State:', currentState.stateName);
-  console.log('[gemini] ➡️  Next State (after response):', nextState.stateName);
-  console.log('[gemini] 📚 History Pages:', history.length);
+  console.log('\n[gemini] ========== AI Request ==========');
+  console.log('[gemini] Current State:', currentState.stateName);
+  console.log('[gemini] Next State:', nextState.stateName);
+  console.log('[gemini] History Pages:', history.length);
   if (history.length > 0) {
-    console.log('[gemini] Full Story History:');
+    console.log('[gemini] Story History:');
     history.forEach((page, idx) => {
       console.log(`[gemini]   Page ${idx + 1}: "${page.sentence}"`);
     });
   }
-  console.log('[gemini] ✍️  Current Words:', currentWords.map(w => w.word).join(' ') || '(empty - starting new sentence)');
-  console.log('\n[gemini] --- Prompt to AI ---');
+  console.log('[gemini] Current Words:', currentWords.map(w => w.word).join(' ') || '(empty)');
+  console.log('\n[gemini] Prompt:');
   console.log(prompt);
-  console.log('[gemini] ==========================================\n');
+  console.log('[gemini] =====================================\n');
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
@@ -350,13 +350,13 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
   const data = JSON.parse(text);
 
   // 打印 AI 的响应
-  console.log('\n[gemini] ========== 📥 AI Response ==========');
-  console.log('[gemini] AI Comment:', data.aiComment);
-  console.log('[gemini] Next Options:', data.nextOptions?.map((opt: WordOption) => `${opt.word} (willComplete: ${opt.willComplete})`).join(', '));
+  console.log('\n[gemini] ========== AI Response ==========');
+  console.log('[gemini] Comment:', data.aiComment);
+  console.log('[gemini] Options:', data.nextOptions?.map((opt: WordOption) => `"${opt.word}" (complete: ${opt.willComplete})`).join(', '));
   console.log('[gemini] Scene:', data.scene?.type);
-  console.log('[gemini] Is Complete:', data.isComplete);
+  console.log('[gemini] Complete:', data.isComplete);
   console.log('[gemini] Translation:', data.englishTranslation || 'N/A');
-  console.log('[gemini] ====================================\n');
+  console.log('[gemini] ===================================\n');
 
   // Derive isComplete from options: if ANY option can complete the sentence, mark as complete
   const finalIsComplete = data.nextOptions?.some((opt: WordOption) => opt.willComplete) || false;
@@ -456,7 +456,7 @@ Style Parameters:
     
     contentParts.push({ text: textPrompt });
 
-    console.log(`[gemini] 🎨 Generating image with${storyHistory.length > 0 && storyHistory[storyHistory.length - 1].illustration ? ' reference image' : 'out reference image'}`);
+    console.log(`[gemini] Image generation: ${storyHistory.length > 0 && storyHistory[storyHistory.length - 1].illustration ? 'with reference' : 'without reference'}`);
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
