@@ -268,7 +268,30 @@ const App: React.FC = () => {
     const fullText = newWords.map(w => w.word).join(' ');
     speechService.speak(fullText, "en-US");
 
-    await processGameStep(newWords);
+    // 关键：根据用户选择的 option 的 willComplete 来决定句子是否完成
+    // 而不是等 AI 返回后再判断
+    if (option.willComplete) {
+      // 用户选择的这个词会让句子完成
+      // 直接设置为完成状态，准备生成图片
+      setGameState(prev => ({
+        ...prev,
+        currentPage: {
+          ...prev.currentPage,
+          words: newWords,
+          isComplete: true,  // 标记为完成
+          translation: fullText
+        },
+        ai: {
+          ...prev.ai,
+          nextOptions: [],
+          phase: 'completed'
+        }
+      }));
+      // 不再调用 AI 获取下一步选项
+    } else {
+      // 用户选择的这个词不会完成句子，继续获取下一步选项
+      await processGameStep(newWords);
+    }
   };
 
   // 播放完整句子
