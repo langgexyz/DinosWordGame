@@ -4,7 +4,7 @@
  */
 
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist, createJSONStorage, subscribeWithSelector } from 'zustand/middleware';
 import { indexedDBStorage } from './indexedDBStorage';
 import type { Story } from '../types';
 
@@ -17,18 +17,19 @@ interface StoryStoreState {
 }
 
 export const useStoryStore = create<StoryStoreState>()(
-  persist(
-    (set, get) => ({
-      stories: [],
-      
-      addStory: (story) => {
-        console.log('[StoryStore] addStory called, story:', story.id, 'pages:', story.pages.length);
-        set((state) => {
-          const newStories = [...state.stories, story];
-          console.log('[StoryStore] After add, total stories:', newStories.length);
-          return { stories: newStories };
-        });
-      },
+  subscribeWithSelector(
+    persist(
+      (set, get) => ({
+        stories: [],
+        
+        addStory: (story) => {
+          console.log('[StoryStore] addStory called, story:', story.id, 'pages:', story.pages.length);
+          set((state) => {
+            const newStories = [...state.stories, story];
+            console.log('[StoryStore] After add, total stories:', newStories.length);
+            return { stories: newStories };
+          });
+        },
       
       updateStory: (id, updates) => set((state) => ({
         stories: state.stories.map(story =>
@@ -71,7 +72,7 @@ export const useStoryStore = create<StoryStoreState>()(
           }
         };
       }
-    }
+    )
   )
 );
 
