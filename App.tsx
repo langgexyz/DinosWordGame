@@ -431,11 +431,17 @@ const App: React.FC = () => {
       console.log('[App] Story added to store');
       
       // 记录角色和场景统计
+      console.log('[App] Recording character and scene stats...');
       if (currentCharacter) {
+        console.log('[App] Recording character:', currentCharacter.name);
         recordCharacter(currentCharacter, completedPage.scene.type);
+      } else {
+        console.warn('[App] No currentCharacter to record!');
       }
+      console.log('[App] Recording scene:', completedPage.scene.type);
       recordScene(completedPage.scene.type, completedPage.scene.backgroundEmoji, currentCharacter?.name || 'unknown');
       recordStory(1);  // 第一页
+      console.log('[App] Stats recorded successfully');
       
     } else {
       // 更新现有故事
