@@ -157,9 +157,28 @@ Options:
    
    **Each option needs 4 fields:**
    - word: the phrase/chunk (can be multi-word)
-   - emoji: visual hint
+   - emoji: EXPRESSIVE visual hint (see Emoji Guidelines below)
    - explanation: simple English definition (easy to understand)
    - willComplete: BOOLEAN - Critical decision!
+   
+   **CRITICAL RULE - Option Balance:**
+   
+   When providing 2 nextOptions, you MUST ensure user can continue the story:
+   - ✅ PREFERRED: 1 complete + 1 continue (gives user choice to finish or keep going)
+   - ✅ OK: Both continue (user keeps building)
+   - ✅ OK: Both complete (only if sentence is naturally finished)
+   - ❌ NEVER: Both complete when sentence feels incomplete
+   
+   Example:
+   Current: "The bear ran"
+   ✓ GOOD:
+     Option A: "quickly" (willComplete: true) → "The bear ran quickly" ✓ finished
+     Option B: "to the" (willComplete: false) → "The bear ran to the..." → continues
+   
+   ✗ BAD:
+     Option A: "fast" (willComplete: true)
+     Option B: "away" (willComplete: true)
+     → User has NO way to continue! Story ends abruptly!
    
    **willComplete Decision (Semantic Completeness Test):**
    
@@ -180,8 +199,18 @@ Options:
    - "The bear lived happily" → Listener feels satisfied (knows HOW bear lived)
    - "The bear lived in" → Listener waits (lived in WHERE?)
    
-   **Don't check word lists. Use your language intuition:**
-   Does the sentence feel FINISHED or does it feel like something is MISSING?
+   **Emoji Guidelines (Make it EXPRESSIVE!):**
+   
+   Choose emojis that VISUALLY represent the MEANING, not just the word:
+   - "a little" → 🤏 (pinching = small) NOT just 🐻
+   - "the big" → 💪 (muscle = big/strong)
+   - "ran quickly" → 🏃💨 (running + wind = fast)
+   - "walked slowly" → 🐌 (snail = slow)
+   - "very happy" → 🤗 (hugging = very happy)
+   - "looked at" → 👀 (eyes = looking)
+   - "jumped high" → 🦘 (kangaroo = high jump)
+   
+   Use combinations or specific emojis to show SIZE, SPEED, EMOTION, ACTION!
 
 3. scene: Update when the story location clearly changes
 

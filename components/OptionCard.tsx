@@ -46,14 +46,37 @@ export const OptionCard: React.FC<OptionCardProps> = ({ option, onClick, disable
     <div
       onClick={!disabled ? onClick : undefined}
       className={clsx(
-        "relative flex flex-col items-center justify-center p-3 sm:p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border-b-[6px] md:border-b-8 transition-all duration-300 w-full h-full group select-none",
-        colorClass,
-        disabled ? "opacity-50 cursor-not-allowed" : "hover:scale-[1.02] hover:-translate-y-1 active:translate-y-1 active:border-b-0 active:shadow-inner cursor-pointer shadow-sm",
+        "relative flex flex-col items-center justify-center p-3 sm:p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] transition-all duration-300 w-full h-full group select-none",
+        // 根据 willComplete 状态设置边框和背景
+        option.willComplete 
+          ? "border-4 md:border-[6px] border-green-400 bg-green-50 hover:bg-green-100 border-b-[8px] md:border-b-[10px]" 
+          : "border-4 md:border-[6px] border-blue-400 bg-blue-50 hover:bg-blue-100 border-b-[8px] md:border-b-[10px]",
+        disabled ? "opacity-50 cursor-not-allowed" : "hover:scale-[1.02] hover:-translate-y-1 active:translate-y-1 active:border-b-4 active:shadow-inner cursor-pointer shadow-sm",
         isHighlighted && "scale-110 ring-4 ring-yellow-400 z-10 shadow-xl"
       )}
       role="button"
       tabIndex={disabled ? -1 : 0}
     >
+      {/* 状态标识 Badge */}
+      <div className={clsx(
+        "absolute top-2 right-2 px-2 py-1 rounded-full text-xs md:text-sm font-bold flex items-center gap-1 shadow-sm",
+        option.willComplete 
+          ? "bg-green-500 text-white" 
+          : "bg-blue-500 text-white"
+      )}>
+        {option.willComplete ? (
+          <>
+            <span>✓</span>
+            <span className="hidden sm:inline">Finish</span>
+          </>
+        ) : (
+          <>
+            <span>→</span>
+            <span className="hidden sm:inline">Continue</span>
+          </>
+        )}
+      </div>
+
       <div className={clsx(
         "flex flex-col items-center gap-1 sm:gap-2 md:gap-4 pointer-events-none mb-4 md:mb-0 transition-transform duration-300",
         isHighlighted && "scale-110"
@@ -66,9 +89,13 @@ export const OptionCard: React.FC<OptionCardProps> = ({ option, onClick, disable
         <div className="text-center">
             <span className={clsx(
                 "block text-xl sm:text-3xl md:text-4xl lg:text-5xl font-black capitalize tracking-tight mb-0.5 md:mb-1",
+                option.willComplete ? "text-green-900" : "text-blue-900",
                 isHighlighted && "text-yellow-600"
             )}>{option.word}</span>
-            <span className="block text-base sm:text-xl md:text-2xl font-bold opacity-70">{option.explanation}</span>
+            <span className={clsx(
+              "block text-base sm:text-xl md:text-2xl font-bold opacity-70",
+              option.willComplete ? "text-green-800" : "text-blue-800"
+            )}>{option.explanation}</span>
         </div>
       </div>
 
