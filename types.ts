@@ -13,10 +13,11 @@ export interface WordOption {
 export type SceneType = 
   | 'forest' | 'ocean' | 'space' | 'city' | 'home' | 'magic' 
   | 'school' | 'park' | 'playground' | 'street' | 'hospital' 
-  | 'restaurant' | 'library' | 'shop' | 'default';
+  | 'restaurant' | 'library' | 'shop' | 'default'
+  | string; // Allow AI to create new scene types dynamically
 
 export interface Scene {
-  type: SceneType;
+  type: SceneType | string; // Support both predefined and AI-created scenes
   backgroundEmoji: string;
   colorTheme: string;
 }
@@ -31,6 +32,15 @@ export interface TokenUsage {
 // 故事数据结构
 // ============================================
 
+// AI 自由生成的角色信息
+export interface CharacterInfo {
+  name: string;              // 如 "little bear", "tiny fish", "brave dragon"
+  type?: string;             // AI 可选描述类型，如 "bear", "fish"（非强制）
+  description?: string;      // AI 对角色的描述
+  emoji?: string;            // AI 选择的 emoji
+  firstAppearance?: number;  // 首次出现时间戳
+}
+
 // 故事的一页
 export interface StoryPage {
   id: number;                    // 页码
@@ -38,6 +48,7 @@ export interface StoryPage {
   words: WordOption[];           // 构成句子的单词数组
   illustration: string | null;   // 配图
   scene: Scene;                  // 这一页的场景
+  characters?: string[];         // 这一页出现的角色名（AI 识别）
   translation?: string;          // 中文翻译
   timestamp: number;             // 创建时间
 }
@@ -56,6 +67,8 @@ export interface Story {
   title: string;                 // 故事标题（AI生成或自动生成）
   cover: StoryCover;             // 封面信息
   pages: StoryPage[];            // 所有页面
+  character?: CharacterInfo;     // 故事的主角（AI 自由创建）
+  mainScene?: string;            // 故事的主要场景（AI 自动确定）
   createdAt: number;             // 创建时间
   updatedAt: number;             // 最后更新时间
 }
@@ -108,4 +121,36 @@ export interface GameState {
 
 export interface ApiError {
   message: string;
+}
+
+// ============================================
+// 角色/场景使用统计（数据驱动）
+// ============================================
+
+// 角色使用统计
+export interface CharacterUsage {
+  characterName: string;     // 角色名字（如 "little bear"）
+  totalStories: number;      // 作为主角的故事数
+  totalAppearances: number;  // 总出场次数
+  lastUsed: number;          // 最后使用时间
+  favoriteScenes: string[];  // 这个角色常出现的场景（TOP 3）
+  emoji?: string;            // 角色 emoji
+  type?: string;             // 角色类型（如 "bear"）
+}
+
+// 场景使用记录
+export interface SceneUsage {
+  sceneType: string;         // 场景类型
+  emoji: string;             // 场景 emoji
+  usedCount: number;         // 使用次数
+  lastUsed: number;          // 最后使用时间
+  associatedCharacters: string[]; // 在这个场景出现过的角色
+}
+
+// 全局使用统计
+export interface UsageStatistics {
+  characters: Record<string, CharacterUsage>;  // 角色使用统计
+  scenes: Record<string, SceneUsage>;          // 场景使用统计
+  totalStories: number;                        // 总故事数
+  totalPages: number;                          // 总页数
 }

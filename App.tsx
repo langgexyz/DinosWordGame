@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { GameState, WordOption, StoryPage, Scene, CreationPhase, Story } from './types';
-import { fetchGameStep, generateStoryImage, generateStoryTitle, AIResponse } from './services/gemini';
+import { GameState, WordOption, StoryPage, Scene, CreationPhase, Story, CharacterInfo } from './types';
+import { fetchGameStep, generateStoryImage, generateStoryTitle, AIResponse, StoryHistory } from './services/gemini';
 import { createSpeechService } from './services/speech';
 import { GameHeader } from './components/GameHeader';
 import { SentenceDisplay } from './components/SentenceDisplay';
@@ -12,6 +12,7 @@ import { Button } from './components/Button';
 import { RefreshCw } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useStoryStore } from './stores/storyStore';
+import { useUsageStore } from './stores/usageStore';
 import { generateStoryCover } from './data/storyCover';
 
 // Theme configurations for different scenes
@@ -85,6 +86,18 @@ const App: React.FC = () => {
   
   // 故事操作
   const { addStory, updateStory, getStory } = useStoryStore();
+  
+  // 使用统计操作
+  const { 
+    recordCharacter, 
+    recordScene, 
+    recordStory, 
+    getMostUsedCharacters, 
+    getMostUsedScenes 
+  } = useUsageStore();
+  
+  // 当前故事的角色信息
+  const [currentCharacter, setCurrentCharacter] = useState<CharacterInfo | null>(null);
 
   // 创建语音服务实例
   const speechService = useMemo(() => createSpeechService({}, {
@@ -136,10 +149,28 @@ const App: React.FC = () => {
       // 获取已完成的页面历史
       const completedPages = getCompletedPages();
       
+      // 准备使用历史数据（仅在新故事时传递）
+      let usageHistory: StoryHistory | undefined;
+      if (completedPages.length === 0 && currentWords.length === 0) {
+        // 新故事开始，传递历史数据
+        usageHistory = {
+          characters: getMostUsedCharacters(5),
+          scenes: getMostUsedScenes(5),
+          totalStories: useUsageStore.getState().totalStories
+        };
+      }
+      
       const aiResponse: AIResponse = await fetchGameStep(
         currentWords,
-        completedPages
+        completedPages,
+        usageHistory
       );
+      
+      // 如果 AI 返回了角色信息，记录它
+      if (aiResponse.characterInfo && !currentCharacter) {
+        setCurrentCharacter(aiResponse.characterInfo);
+        console.log('[App] Character detected:', aiResponse.characterInfo.name);
+      }
 
       // 更新状态
       setGameState(prev => ({
@@ -173,6 +204,9 @@ const App: React.FC = () => {
     setViewMode('game');
     speechService.speak("Let's create a story together!", "en-US");
     
+    // 重置角色信息（新故事）
+    setCurrentCharacter(null);
+    
     // 只创建临时会话ID，不立即保存到 store（防止空故事）
     const sessionId = `story-${Date.now()}`;
     
@@ -202,6 +236,11 @@ const App: React.FC = () => {
     setViewMode('game');
     speechService.speak("Let's continue our story!", "en-US");
     
+    // 恢复故事的角色信息
+    if (story.character) {
+      setCurrentCharacter(story.character);
+    }
+    
     // 设置为当前创作的故事
     setGameState(prev => ({
       ...prev,
@@ -209,7 +248,7 @@ const App: React.FC = () => {
       currentPage: {
         words: [],
         scene: story.pages.length > 0 
-          ? story.pages[story.pages.length - 1].scene 
+          ? story.pages[story.pages.length - 1]?.scene 
           : { type: 'default', backgroundEmoji: '🦕', colorTheme: '' },
         isComplete: false
       }
@@ -354,12 +393,22 @@ const App: React.FC = () => {
         title: await generateStoryTitle([completedPage]), // 自动生成标题
         cover: generateStoryCover([completedPage]),
         pages: [completedPage],
+        character: currentCharacter || undefined,  // 保存角色信息
+        mainScene: completedPage.scene.type,
         createdAt: Date.now(),
         updatedAt: Date.now()
       };
       console.log('[App] New story created:', newStory);
       addStory(newStory);
       console.log('[App] Story added to store');
+      
+      // 记录角色和场景统计
+      if (currentCharacter) {
+        recordCharacter(currentCharacter, completedPage.scene.type);
+      }
+      recordScene(completedPage.scene.type, completedPage.scene.backgroundEmoji, currentCharacter?.name || 'unknown');
+      recordStory(1);  // 第一页
+      
     } else {
       // 更新现有故事
       console.log('[App] Updating existing story');
@@ -371,6 +420,9 @@ const App: React.FC = () => {
         updatedAt: Date.now()
       });
       console.log('[App] Story updated, total pages:', updatedPages.length);
+      
+      // 更新场景统计
+      recordScene(completedPage.scene.type, completedPage.scene.backgroundEmoji, currentCharacter?.name || 'unknown');
     }
 
     // 清空当前页状态，开始新页

@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { WordOption, Scene, StoryPage } from "../types";
+import { WordOption, Scene, StoryPage, CharacterInfo, CharacterUsage, SceneUsage } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -9,6 +9,14 @@ export interface AIResponse {
   aiComment: string;
   scene: Scene;
   nextOptions: WordOption[];
+  characterInfo?: CharacterInfo;  // AI 识别的角色信息
+}
+
+// 历史数据接口（传递给 AI）
+export interface StoryHistory {
+  characters: CharacterUsage[];  // 角色使用历史
+  scenes: SceneUsage[];          // 场景使用历史
+  totalStories: number;          // 总故事数
 }
 
 /**
@@ -53,6 +61,35 @@ INSTEAD, guide stories toward:
 If the story naturally goes toward a risky situation, redirect with safe alternatives.
 Example: Instead of "jumped into the river" → offer "played near the river" or "saw fish in the river"
 
+**Character & Scene Philosophy (Data-Driven Creativity):**
+
+1. **First Story (No History Provided)**:
+   - You are FREE to create any character and scene
+   - Examples: "A little bear", "A tiny fish", "A brave girl", "A magical dragon"
+   - Be creative! No restrictions!
+   - Detect and report the character in your response
+
+2. **Subsequent Stories (History Provided)**:
+   - You will receive CHARACTER HISTORY showing previously created characters
+   - PREFERENCE RULE: Use familiar characters 70% of the time
+     * "The little bear" (returning character from history)
+     * Continue their story: "He", "She", "It"
+   - VARIATION RULE: Create new characters 30% of the time
+     * "A tiny rabbit" (brand new character)
+   - Consider character popularity (totalStories count) when choosing
+
+3. **Character Continuity WITHIN a Story**:
+   - Once you choose/create a character → KEEP IT throughout the entire story
+   - Use pronouns (He/She/It/They) in subsequent sentences
+   - Example: "A little bear played" → "He ran" → "Then he found honey"
+
+4. **Scene Detection**:
+   - Naturally detect scene from story context
+   - You can use predefined scene types OR create new ones
+   - Available scenes: forest, ocean, space, magic, home, school, park, playground, 
+                       street, hospital, restaurant, library, shop, default
+   - When scene changes in story, update the scene field
+
 **Your Responsibilities:**
 
 1. aiComment: Ask a SHORT (max 5 words), story-driven question
@@ -95,8 +132,13 @@ Example: Instead of "jumped into the river" → offer "played near the river" or
    Does the sentence feel FINISHED or does it feel like something is MISSING?
 
 3. scene: Update when the story location clearly changes
-   Available: forest, ocean, space, magic, home, school, park, playground, 
-             street, hospital, restaurant, library, shop, default
+
+4. characterInfo (NEW): Detect the main character in the story
+   - name: e.g., "little bear", "tiny fish", "brave girl"
+   - type: e.g., "bear", "fish", "girl" (optional)
+   - emoji: character emoji (optional)
+   - description: brief character trait (optional)
+   - ONLY provide this for the FIRST sentence of a story or when a new main character appears
 
 **Story Flow:**
 - When continuing a story: prefer pronouns (It/She/He/They) or time words (Then/Next/Suddenly)
@@ -111,6 +153,7 @@ Example: Instead of "jumped into the river" → offer "played near the river" or
 interface PromptInput {
   currentWords: WordOption[];
   history: StoryPage[];
+  usageHistory?: StoryHistory;  // 可选的使用历史数据
 }
 
 // 抽象状态类
@@ -134,6 +177,25 @@ abstract class StoryCreationState {
       return `Recent story: ${recent.map(h => `"${h.sentence}"`).join('. ')}.`;
     }
   }
+  
+  // 辅助方法：构建历史数据提示
+  protected buildHistoryContext(usageHistory?: StoryHistory): string {
+    if (!usageHistory || usageHistory.characters.length === 0) {
+      return '';
+    }
+    
+    const topCharacters = usageHistory.characters.slice(0, 3);
+    const charList = topCharacters.map(char => 
+      `"${char.characterName}" ${char.emoji || ''} (${char.totalStories} stories)`
+    ).join(', ');
+    
+    return `
+**Previous Characters You Created:**
+${charList}
+
+PREFERENCE: Consider using one of these familiar characters (70% recommended) or create a new one (30%).
+`;
+  }
 }
 
 // 状态1: 新故事第一句开始
@@ -150,11 +212,12 @@ class FirstSentenceStartState extends StoryCreationState {
   
   buildPrompt(input: PromptInput): string {
     const context = this.buildContext(input.history);
+    const historyContext = this.buildHistoryContext(input.usageHistory);
     const currentText = input.currentWords.map(w => w.word).join(' ');
     
     return `
 ${context}
-
+${historyContext}
 Current sentence being built: "${currentText}"
 Words count: ${input.currentWords.length}
 
@@ -164,6 +227,7 @@ Tasks:
 1. Determine scene
 2. Generate 2 nextOptions
 3. Check if complete (semantically complete sentence, not just word count)
+4. IMPORTANT: Detect and provide characterInfo (name, type, emoji, description) for the main character
     `;
   }
 }
@@ -215,7 +279,7 @@ class NewSentenceStartState extends StoryCreationState {
   buildPrompt(input: PromptInput): string {
     const context = this.buildContext(input.history);
     const currentText = input.currentWords.map(w => w.word).join(' ');
-    const lastSentence = input.history.length > 0 ? input.history[input.history.length - 1].sentence : "";
+    const lastSentence = input.history.length > 0 ? input.history[input.history.length - 1]?.sentence : "";
     
     return `
 ${context}
@@ -302,10 +366,15 @@ class StateFactory {
 // 主函数
 // ============================================
 
-export const fetchGameStep = async (currentWords: WordOption[], history: StoryPage[] = []): Promise<AIResponse> => {
+export const fetchGameStep = async (
+  currentWords: WordOption[], 
+  history: StoryPage[] = [],
+  usageHistory?: StoryHistory
+): Promise<AIResponse> => {
   const input: PromptInput = {
     currentWords,
-    history
+    history,
+    usageHistory
   };
   
   // 状态模式：state1 + input → state2
@@ -320,6 +389,15 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
   console.log('[gemini] Current State:', currentState.stateName);
   console.log('[gemini] Next State:', nextState.stateName);
   console.log('[gemini] History Pages:', history.length);
+  
+  // 打印角色历史
+  if (usageHistory && usageHistory.characters.length > 0) {
+    console.log('[gemini] Character History:');
+    usageHistory.characters.slice(0, 3).forEach(char => {
+      console.log(`[gemini]   - "${char.characterName}" ${char.emoji || ''} (used ${char.totalStories} times)`);
+    });
+  }
+  
   if (history.length > 0) {
     console.log('[gemini] Story History:');
     history.forEach((page, idx) => {
@@ -345,7 +423,7 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
           scene: {
             type: Type.OBJECT,
             properties: {
-              type: { type: Type.STRING, enum: ['forest', 'ocean', 'space', 'city', 'home', 'magic', 'default'] },
+              type: { type: Type.STRING },
               backgroundEmoji: { type: Type.STRING },
               colorTheme: { type: Type.STRING }
             }
@@ -361,6 +439,15 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
                 willComplete: { type: Type.BOOLEAN },
               },
               required: ["word", "emoji", "explanation", "willComplete"]
+            }
+          },
+          characterInfo: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              type: { type: Type.STRING },
+              emoji: { type: Type.STRING },
+              description: { type: Type.STRING }
             }
           }
         },
@@ -379,12 +466,16 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
   console.log('[gemini] Comment:', data.aiComment);
   console.log('[gemini] Options:', data.nextOptions?.map((opt: WordOption) => `"${opt.word}" (complete: ${opt.willComplete})`).join(', '));
   console.log('[gemini] Scene:', data.scene?.type);
+  if (data.characterInfo) {
+    console.log('[gemini] Character:', data.characterInfo.name, data.characterInfo.emoji || '');
+  }
   console.log('[gemini] ===================================\n');
 
   return {
     aiComment: data.aiComment,
     nextOptions: data.nextOptions || [],
-    scene: data.scene
+    scene: data.scene,
+    characterInfo: data.characterInfo
   };
 };
 
@@ -403,7 +494,7 @@ export const generateStoryImage = async (
     if (storyHistory.length > 0) {
       // 获取最后一页的图片作为参考
       const lastPage = storyHistory[storyHistory.length - 1];
-      const previousImage = lastPage.illustration;
+      const previousImage = lastPage?.illustration;
       
       if (previousImage) {
         // 如果有前一张图片，添加到输入中
@@ -432,7 +523,7 @@ CRITICAL - CHARACTER CONSISTENCY:
 - This is the SAME character in the next scene
 - Only the scene/action changes, NOT the character
 
-Previous scene: "${lastPage.sentence}"
+Previous scene: "${lastPage?.sentence || ''}"
 `;
         }
       } else {
@@ -492,7 +583,7 @@ Style Parameters:
     
     contentParts.push({ text: textPrompt });
 
-    console.log(`[gemini] Image generation: ${storyHistory.length > 0 && storyHistory[storyHistory.length - 1].illustration ? 'with reference' : 'without reference'}`);
+    console.log(`[gemini] Image generation: ${storyHistory.length > 0 && storyHistory[storyHistory.length - 1]?.illustration ? 'with reference' : 'without reference'}`);
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
@@ -617,7 +708,7 @@ function getMostFrequentScene(pages: StoryPage[]): string {
     }
   });
   
-  return SCENE_NAMES[mainScene] || SCENE_NAMES.default;
+  return SCENE_NAMES[mainScene] ?? SCENE_NAMES['default'] ?? '奇妙';
 }
 
 /**
