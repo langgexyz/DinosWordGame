@@ -26,7 +26,7 @@ export const StoryReader: React.FC<StoryReaderProps> = ({ story, onClose, onCont
     onEnd: () => setIsPlaying(false)
   }), []);
   
-  const currentPage = story.pages[currentPageIndex];
+  const currentPage = story.pages[currentPageIndex] || null;
   const totalPages = story.pages.length;
   
   // 翻页逻辑
@@ -115,7 +115,7 @@ export const StoryReader: React.FC<StoryReaderProps> = ({ story, onClose, onCont
           onClick={onClose}
           className="text-lg md:text-xl hover:scale-110 transition-transform active:scale-95 font-medium text-slate-700"
         >
-          ← 返回
+          ← Back
         </button>
         
         <h2 className="font-black text-slate-800 text-base md:text-xl truncate max-w-xs md:max-w-md">

@@ -51,10 +51,10 @@ export const StoryLibrary: React.FC<StoryLibraryProps> = ({
             ←
           </button>
           <h1 className="text-3xl md:text-4xl font-black text-slate-800 flex items-center gap-2">
-            📚 我的故事书架
+            📚 My Story Library
           </h1>
           <div className="text-sm md:text-base text-slate-500 bg-white px-3 py-1 rounded-full">
-            {stories.length} 个
+            {stories.length} {stories.length === 1 ? 'story' : 'stories'}
           </div>
         </header>
 
@@ -82,14 +82,14 @@ export const StoryLibrary: React.FC<StoryLibraryProps> = ({
           <div className="text-center py-12 md:py-20">
             <div className="text-6xl md:text-8xl mb-4 opacity-20 animate-bounce">📚</div>
             <p className="text-lg md:text-xl text-slate-400 mb-6">
-              书架空空的，快去创作你的第一个故事吧！
+              Your library is empty. Let's create your first story!
             </p>
             <Button 
               onClick={onCreateNew}
               size="lg"
               className="bg-green-500 hover:bg-green-600 text-white px-6 md:px-8 py-3 md:py-4 text-lg md:text-xl rounded-2xl shadow-lg"
             >
-              开始创作 ✨
+              Start Creating ✨
             </Button>
           </div>
         )}

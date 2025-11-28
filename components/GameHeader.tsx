@@ -17,14 +17,14 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
 }) => {
   return (
     <div className="flex justify-between items-center mb-3 md:mb-6">
-      {/* 左侧：我的绘本 */}
+      {/* Left: My Library */}
       {onOpenLibrary && (
         <button 
           onClick={onOpenLibrary}
           className="bg-white/80 hover:bg-white px-3 py-1.5 md:px-4 md:py-2 rounded-full font-bold text-purple-600 shadow-sm flex items-center gap-2 transition-colors text-sm md:text-base"
         >
           <Library className="w-4 h-4 md:w-5 md:h-5" />
-          <span className="hidden sm:inline">我的绘本</span>
+          <span className="hidden sm:inline">My Library</span>
         </button>
       )}
       

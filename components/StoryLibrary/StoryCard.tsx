@@ -90,7 +90,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onOpen, onContinue,
         </p>
       </div>
 
-      {/* 继续创作按钮（悬停显示） */}
+      {/* Continue button (show on hover) */}
       {onContinue && (
         <button
           onClick={(e) => {
@@ -99,7 +99,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({ story, onOpen, onContinue,
           }}
           className="absolute bottom-2 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-sm font-bold rounded-full opacity-0 group-hover:opacity-100 transition-all hover:scale-105 active:scale-95 shadow-lg z-20"
         >
-          继续创作 ✨
+          Continue ✨
         </button>
       )}
 

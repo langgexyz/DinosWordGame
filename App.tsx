@@ -262,14 +262,13 @@ const App: React.FC = () => {
     }
     
     // 设置为当前创作的故事
+    const lastPage = story.pages[story.pages.length - 1];
     setGameState(prev => ({
       ...prev,
       currentStoryId: story.id,
       currentPage: {
         words: [],
-        scene: story.pages.length > 0 
-          ? story.pages[story.pages.length - 1]?.scene 
-          : { type: 'default', backgroundEmoji: '🦕', colorTheme: '' },
+        scene: lastPage?.scene || { type: 'default', backgroundEmoji: '🦕', colorTheme: '' },
         isComplete: false
       }
     }));
@@ -518,7 +517,7 @@ const App: React.FC = () => {
         setGameState(prev => ({
           ...prev,
           ui: { ...prev.ui, isGeneratingImage: true },
-          ai: { ...prev.ai, comment: "太棒了！让我画一幅画...🎨" }
+          ai: { ...prev.ai, comment: "Great! Let me draw this scene...🎨" }
         }));
         
         // 获取已完成的页面作为历史上下文
@@ -528,7 +527,7 @@ const App: React.FC = () => {
         setGameState(prev => ({
           ...prev,
           ui: { ...prev.ui, isGeneratingImage: false, generatedImage: img },
-          ai: { ...prev.ai, comment: "画好啦！你创作了一个精彩的句子！🎉", phase: 'completed' }
+          ai: { ...prev.ai, comment: "Perfect! One more page done!🎉", phase: 'completed' }
         }));
       };
 
@@ -571,7 +570,7 @@ const App: React.FC = () => {
               size="lg"
               className="w-full text-xl md:text-2xl py-6 md:py-8 rounded-2xl md:rounded-3xl shadow-lg bg-purple-500 hover:bg-purple-600 active:scale-95 transition-all"
             >
-              📚 我的绘本书架
+              📚 My Story Library
             </Button>
           </div>
         </div>
