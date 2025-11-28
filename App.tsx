@@ -268,7 +268,7 @@ const App: React.FC = () => {
     // 而不是等 AI 返回后再判断
     if (option.willComplete) {
       // 用户选择的这个词会让句子完成
-      // 直接设置为完成状态，准备生成图片
+      // 设置为 generating 状态，触发图片生成
       setGameState(prev => ({
         ...prev,
         currentPage: {
@@ -280,7 +280,7 @@ const App: React.FC = () => {
         ai: {
           ...prev.ai,
           nextOptions: [],
-          phase: 'completed'
+          phase: 'generating'  // 触发 useEffect 生成图片
         }
       }));
       // 不再调用 AI 获取下一步选项
