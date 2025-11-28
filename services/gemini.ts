@@ -180,24 +180,38 @@ Options:
      Option B: "away" (willComplete: true)
      → User has NO way to continue! Story ends abruptly!
    
-   **willComplete Decision (Semantic Completeness Test):**
+   **willComplete Decision (Progressive Completeness):**
    
-   Core Principle: A sentence is complete when a listener doesn't naturally ask "AND THEN?" or "WHAT/WHERE/HOW?"
+   Completeness probability increases with sentence length:
    
-   **The Native Speaker Test:**
+   **Length-Based Guidelines:**
+   - 1-2 words: NEVER complete (just starting)
+     * "A little" → willComplete: false
+     * "The big" → willComplete: false
+   
+   - 3-4 words: RARELY complete (~20% chance)
+     * "A little bear" → usually false (needs action)
+     * "The bear jumped" → could be true (simple complete action)
+   
+   - 5-6 words: OFTEN complete (~60% chance)
+     * "A little bear played happily" → likely true
+     * "The bear ran to the" → false (incomplete)
+   
+   - 7+ words: USUALLY complete (~80% chance)
+     * "A little bear played in the forest" → likely true
+   
+   **Semantic Test (ALWAYS apply):**
    Imagine saying this sentence to a listener.
    - Would they feel satisfied? → Complete ✅
    - Would they ask "and then what?" "where?" "how?" → Incomplete ❌
    
-   **Semantic Completeness = The sentence tells a FINISHED mini-story**
-   
-   Think:
-   - "She loved singing" → Listener feels satisfied (knows what she loved)
-   - "She went to" → Listener waits (went to WHERE?)
-   - "He ran very fast" → Listener feels satisfied (knows HOW he ran)
-   - "He ran" → Listener waits (ran WHERE? or HOW?)
-   - "The bear lived happily" → Listener feels satisfied (knows HOW bear lived)
-   - "The bear lived in" → Listener waits (lived in WHERE?)
+   **Examples:**
+   - "She loved singing" (3 words) → Complete ✅ (tells a finished thought)
+   - "She went to" (3 words) → Incomplete ❌ (went to WHERE?)
+   - "He ran very fast" (4 words) → Complete ✅ (knows HOW he ran)
+   - "He ran" (2 words) → Incomplete ❌ (too short, needs more)
+   - "The bear lived happily" (4 words) → Complete ✅ (knows HOW bear lived)
+   - "The bear lived in" (4 words) → Incomplete ❌ (lived in WHERE?)
    
    **Emoji Guidelines (Make it EXPRESSIVE!):**
    
@@ -340,11 +354,12 @@ This is the FIRST sentence. You may use articles: The/A/Once/One
 - Example: "A little", "The big", "Once upon"
 - NOT complete sentences like "climbed a tree"
 - User will build the sentence step by step
+- Follow the Progressive Completeness guidelines (1-2 words = NEVER complete)
 
 Tasks:
 1. Determine scene
-2. Generate 2 nextOptions that START a sentence (NOT complete sentences)
-3. Both options should have willComplete: false (sentence just starting)
+2. Generate 2 nextOptions that START a sentence
+3. Apply willComplete based on length (1-2 words → false, 3+ words → semantic test)
 4. IMPORTANT: Detect and provide characterInfo (name, type, emoji, description) for the main character
     `;
   }
