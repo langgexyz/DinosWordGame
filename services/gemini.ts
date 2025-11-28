@@ -41,10 +41,27 @@ You are Dino 🦖, helping 4-year-olds practice SPOKEN English through interacti
    - word: the phrase/chunk to add
    - emoji: visual hint
    - explanation: what does this mean?
-   - willComplete: Will this choice make a complete sentence?
-     * Think: After adding this word/phrase, does it express a full thought?
-     * true = "The bear jumped" (complete thought)
-     * false = "The bear lived in" (needs more - where?)
+   - willComplete: BOOLEAN - Will adding THIS option create a complete sentence?
+   
+   **How to determine willComplete:**
+   Step 1: Imagine the sentence AFTER adding this option
+   Step 2: Ask: "Does it express a complete thought?"
+   Step 3: Check: Does it end with a meaningful word (NOT preposition/article)?
+   
+   Examples:
+   Current: "She"
+   Option 1: {word: "loved singing", willComplete: true}  
+     → "She loved singing" ✅ Complete thought
+   Option 2: {word: "went to", willComplete: false}      
+     → "She went to" ❌ Incomplete (where?)
+   
+   Current: "The bear lived"
+   Option 1: {word: "happily", willComplete: true}
+     → "The bear lived happily" ✅ Complete
+   Option 2: {word: "in", willComplete: false}
+     → "The bear lived in" ❌ Incomplete (where?)
+   
+   NEVER mark as complete if it ends with: to/in/on/at/the/a/and/or/with
 
 3. isComplete: Derived from the options
    - If ANY option has willComplete=true, then isComplete=true
@@ -272,20 +289,20 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
   const prompt = currentState.buildPrompt(input);
 
   // 打印给 AI 的完整上下文
-  console.log('\n========== 📤 AI Request Context ==========');
-  console.log('🎯 Current State:', currentState.stateName);
-  console.log('➡️  Next State (after response):', nextState.stateName);
-  console.log('📚 History Pages:', history.length);
+  console.log('\n[gemini] ========== 📤 AI Request Context ==========');
+  console.log('[gemini] 🎯 Current State:', currentState.stateName);
+  console.log('[gemini] ➡️  Next State (after response):', nextState.stateName);
+  console.log('[gemini] 📚 History Pages:', history.length);
   if (history.length > 0) {
-    console.log('Full Story History:');
+    console.log('[gemini] Full Story History:');
     history.forEach((page, idx) => {
-      console.log(`  Page ${idx + 1}: "${page.sentence}"`);
+      console.log(`[gemini]   Page ${idx + 1}: "${page.sentence}"`);
     });
   }
-  console.log('✍️  Current Words:', currentWords.map(w => w.word).join(' ') || '(empty - starting new sentence)');
-  console.log('\n--- Prompt to AI ---');
+  console.log('[gemini] ✍️  Current Words:', currentWords.map(w => w.word).join(' ') || '(empty - starting new sentence)');
+  console.log('\n[gemini] --- Prompt to AI ---');
   console.log(prompt);
-  console.log('==========================================\n');
+  console.log('[gemini] ==========================================\n');
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
@@ -333,13 +350,13 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
   const data = JSON.parse(text);
 
   // 打印 AI 的响应
-  console.log('\n========== 📥 AI Response ==========');
-  console.log('AI Comment:', data.aiComment);
-  console.log('Next Options:', data.nextOptions?.map((opt: WordOption) => `${opt.word} (${opt.explanation})`).join(', '));
-  console.log('Scene:', data.scene?.type);
-  console.log('Is Complete:', data.isComplete);
-  console.log('Translation:', data.englishTranslation || 'N/A');
-  console.log('====================================\n');
+  console.log('\n[gemini] ========== 📥 AI Response ==========');
+  console.log('[gemini] AI Comment:', data.aiComment);
+  console.log('[gemini] Next Options:', data.nextOptions?.map((opt: WordOption) => `${opt.word} (willComplete: ${opt.willComplete})`).join(', '));
+  console.log('[gemini] Scene:', data.scene?.type);
+  console.log('[gemini] Is Complete:', data.isComplete);
+  console.log('[gemini] Translation:', data.englishTranslation || 'N/A');
+  console.log('[gemini] ====================================\n');
 
   // Derive isComplete from options: if ANY option can complete the sentence, mark as complete
   const finalIsComplete = data.nextOptions?.some((opt: WordOption) => opt.willComplete) || false;
@@ -439,7 +456,7 @@ Style Parameters:
     
     contentParts.push({ text: textPrompt });
 
-    console.log(`🎨 Generating image with${storyHistory.length > 0 && storyHistory[storyHistory.length - 1].illustration ? ' reference image' : 'out reference image'}`);
+    console.log(`[gemini] 🎨 Generating image with${storyHistory.length > 0 && storyHistory[storyHistory.length - 1].illustration ? ' reference image' : 'out reference image'}`);
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
