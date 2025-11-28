@@ -28,8 +28,15 @@ export const StoryLibrary: React.FC<StoryLibraryProps> = ({
   const allStories = useListDataSource(storiesSortedByTimeDataSource);
   const { removeStory } = useStoryStore();
   
+  console.log('[StoryLibrary] allStories from data source:', allStories.length);
+  
   // 过滤掉空故事（没有任何页面的故事）
   const stories = allStories.filter(story => story.pages.length > 0);
+  
+  console.log('[StoryLibrary] After filtering empty stories:', stories.length);
+  if (stories.length > 0) {
+    console.log('[StoryLibrary] Stories:', stories.map(s => ({ id: s.id, pages: s.pages.length })));
+  }
   
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 p-4 md:p-6">

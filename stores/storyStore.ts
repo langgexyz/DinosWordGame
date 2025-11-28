@@ -59,7 +59,14 @@ export const useStoryStore = create<StoryStoreState>()(
           } else {
             console.log('[StoryStore] Hydration complete, stories count:', state?.stories?.length || 0);
             if (state?.stories) {
-              console.log('[StoryStore] Loaded stories:', state.stories.map(s => ({ id: s.id, pages: s.pages.length })));
+              state.stories.forEach((s, idx) => {
+                console.log(`[StoryStore] Story ${idx + 1}:`, {
+                  id: s.id,
+                  title: s.title,
+                  pagesCount: s.pages.length,
+                  hasPages: s.pages.length > 0
+                });
+              });
             }
           }
         };
