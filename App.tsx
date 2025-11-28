@@ -147,21 +147,19 @@ const App: React.FC = () => {
         currentPage: {
           words: currentWords,
           scene: aiResponse.scene,
-          isComplete: aiResponse.isComplete,
+          isComplete: false,  // Completion determined by user's option choice, not AI
           translation: aiResponse.englishTranslation
         },
         ai: {
           comment: aiResponse.aiComment,
           nextOptions: aiResponse.nextOptions,
-          phase: aiResponse.isComplete ? 'generating' : 'building'
+          phase: 'building'
         },
         ui: { ...prev.ui, loading: false }
       }));
       
-      // 播放 AI 评论（仅在构建阶段）
-      if (!aiResponse.isComplete) {
-        setTimeout(() => speechService.speak(aiResponse.aiComment, "en-US"), 800);
-      }
+      // 播放 AI 评论
+      setTimeout(() => speechService.speak(aiResponse.aiComment, "en-US"), 800);
     } catch (error) {
       console.error("Game processing error:", error);
       setGameState(prev => ({
@@ -227,13 +225,13 @@ const App: React.FC = () => {
         currentPage: {
           words: [],
           scene: aiResponse.scene,
-          isComplete: aiResponse.isComplete,
+          isComplete: false,  // Completion determined by user's option choice
           translation: aiResponse.englishTranslation
         },
         ai: {
           comment: aiResponse.aiComment,
           nextOptions: aiResponse.nextOptions,
-          phase: aiResponse.isComplete ? 'generating' : 'building'
+          phase: 'building'
         },
         ui: { ...prev.ui, loading: false }
       }));

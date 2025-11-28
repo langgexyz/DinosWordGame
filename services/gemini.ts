@@ -9,7 +9,6 @@ export interface AIResponse {
   aiComment: string;
   scene: Scene;
   nextOptions: WordOption[];
-  isComplete: boolean;
   englishTranslation?: string;
 }
 
@@ -68,7 +67,6 @@ You are Dino 🦖, helping 4-year-olds practice SPOKEN English through interacti
    - This is DIFFERENT from willComplete (which is about future state)
    - If current sentence is complete, user should NOT see more options
 
-4. Scene: Update when location changes
 
 **Story Flow:**
 - Continue naturally using pronouns/time words
@@ -337,10 +335,9 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
               required: ["word", "emoji", "explanation", "willComplete"]
             }
           },
-          isComplete: { type: Type.BOOLEAN },
           englishTranslation: { type: Type.STRING }
         },
-        required: ["aiComment", "nextOptions", "isComplete", "scene"]
+        required: ["aiComment", "nextOptions", "scene"]
       }
     }
   });
@@ -355,17 +352,12 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
   console.log('[gemini] Comment:', data.aiComment);
   console.log('[gemini] Options:', data.nextOptions?.map((opt: WordOption) => `"${opt.word}" (complete: ${opt.willComplete})`).join(', '));
   console.log('[gemini] Scene:', data.scene?.type);
-  console.log('[gemini] Complete:', data.isComplete);
   console.log('[gemini] Translation:', data.englishTranslation || 'N/A');
   console.log('[gemini] ===================================\n');
 
-  // isComplete should reflect whether the CURRENT sentence is already complete
-  // NOT whether the next options CAN complete it
-  // AI should set this based on the current state, not future possibilities
   return {
     aiComment: data.aiComment,
     nextOptions: data.nextOptions || [],
-    isComplete: data.isComplete,  // Trust AI's judgment about current state
     englishTranslation: data.englishTranslation,
     scene: data.scene
   };
