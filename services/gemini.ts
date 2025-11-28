@@ -445,6 +445,24 @@ ${visualContinuityPrompt}
 Scene Setting: ${sceneType}
 Current Action/Text: ${sentence}
 
+CRITICAL - CHILD SAFETY RULES (MUST FOLLOW):
+This illustration is for 4-year-old children who may imitate what they see.
+NEVER show characters doing dangerous activities:
+- DO NOT show characters IN water (rivers, lakes, ocean, pools) without adult supervision
+- If story mentions water: show character NEAR water (on the shore/bank), NOT in water
+- DO NOT show climbing high places alone
+- DO NOT show touching fire, hot objects, or dangerous tools
+- DO NOT show running into streets or roads with vehicles
+- Show SAFE, supervised activities only
+
+Example Safety Adaptations:
+- "ran to the river" → Show character standing ON THE RIVERBANK looking at water, NOT in the water
+- "jumped in the pool" → Show character NEXT TO pool with adult present
+- "climbed the tree" → Show character near tree base, not high up
+- "played with fire" → Show character looking at campfire from safe distance with adult
+
+ALWAYS prioritize child safety over literal story interpretation.
+
 Style Parameters:
 - Bright, happy colors
 - Simple shapes, easy for 4-year-olds to understand
