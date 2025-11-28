@@ -434,7 +434,7 @@ const App: React.FC = () => {
       }
     }));
 
-    // 委托给状态机处理
+    // 委托给状态机处理（状态机会使用最新的 currentWords）
     stateMachineHandleClick(option);
   };
 

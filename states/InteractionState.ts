@@ -256,9 +256,11 @@ export class AIThinkingState extends InteractionState {
   onEnter(context: StateContext): void {
     super.onEnter(context);
     
-    // 发起 API 请求
-    const newWords = [...context.currentWords, this.selectedOption];
-    context.onRequestAI(newWords)
+    console.log('[AIThinkingState] Current words:', context.currentWords.map(w => w.word).join(' '));
+    console.log('[AIThinkingState] Selected option:', this.selectedOption.word);
+    
+    // 发起 API 请求（使用 context.currentWords，它应该已经包含了新选择的词）
+    context.onRequestAI(context.currentWords)
       .then(response => {
         context.aiResponse = response;
         context.onStateChange(new AISpeakingState(response));
