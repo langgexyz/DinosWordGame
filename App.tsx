@@ -62,7 +62,7 @@ const App: React.FC = () => {
     },
     ai: {
       comment: "Rawr! Let's play!",
-      nextOptions: [],
+    nextOptions: [],
       phase: 'building'
     },
     ui: {
@@ -77,7 +77,7 @@ const App: React.FC = () => {
   type ViewMode = 'start' | 'game' | 'library' | 'reader';
   const [viewMode, setViewMode] = useState<ViewMode>('start');
   const [readingStory, setReadingStory] = useState<Story | null>(null);
-  
+
   const [isPlayingFullSentence, setIsPlayingFullSentence] = useState(false);
   const [isDinoSpeaking, setIsDinoSpeaking] = useState(false);
   const [highlightedWord, setHighlightedWord] = useState<string | null>(null);
@@ -97,12 +97,12 @@ const App: React.FC = () => {
     onBoundary: (word) => {
       const matchedOption = gameState.ai.nextOptions.find(
         opt => opt.word.toLowerCase() === word
-      );
-      if (matchedOption) {
+            );
+            if (matchedOption) {
         setHighlightedWord(word);
-        setTimeout(() => setHighlightedWord(null), 1500);
-      }
-    }
+              setTimeout(() => setHighlightedWord(null), 1500);
+            }
+          }
   }), [gameState.ai.nextOptions]);
 
   // 获取当前故事（如果存在）
@@ -383,7 +383,7 @@ const App: React.FC = () => {
       },
       ai: {
         comment: "Thinking...",
-        nextOptions: [],
+      nextOptions: [],
         phase: 'building'
       },
       ui: {
@@ -467,8 +467,8 @@ const App: React.FC = () => {
             Dino's <span className="text-green-500">Story</span>
           </h1>
           <p className="text-slate-500 text-lg md:text-2xl mb-8 md:mb-10 font-medium leading-relaxed">
-            Listen, Speak, and Play!<br/>
-            <span className="text-sm md:text-base text-slate-400 mt-2 block">Parent-Child English Adventure</span>
+             Listen, Speak, and Play!<br/>
+             <span className="text-sm md:text-base text-slate-400 mt-2 block">Parent-Child English Adventure</span>
           </p>
           
           <div className="space-y-4">
@@ -477,8 +477,8 @@ const App: React.FC = () => {
               size="lg" 
               className="w-full text-xl md:text-2xl py-6 md:py-8 rounded-2xl md:rounded-3xl shadow-lg bg-green-500 hover:bg-green-600 active:scale-95 transition-all"
             >
-              Start Adventure! 🚀
-            </Button>
+             Start Adventure! 🚀
+          </Button>
             
             <Button
               onClick={openLibrary}
@@ -492,7 +492,7 @@ const App: React.FC = () => {
       </div>
     );
   }
-  
+
   // 绘本库
   if (viewMode === 'library') {
     return (
@@ -522,40 +522,40 @@ const App: React.FC = () => {
   // 游戏界面
   return (
     <div className={clsx("min-h-screen flex flex-col transition-colors duration-1000", themeClass)}>
-      
+       
       {/* 错误弹窗 */}
       {gameState.ui.error && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2rem] p-8 max-w-md w-full text-center shadow-2xl animate-pop-in border-4 border-red-100">
-            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-4xl">🤕</span>
+         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-[2rem] p-8 max-w-md w-full text-center shadow-2xl animate-pop-in border-4 border-red-100">
+               <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-4xl">🤕</span>
+               </div>
+               <h3 className="text-2xl font-black text-slate-800 mb-2">Oops! Dino tripped!</h3>
+               <p className="text-slate-500 mb-6 text-lg">We couldn't reach the magic cloud.</p>
+               <Button onClick={retryLastAction} className="w-full bg-red-400 hover:bg-red-500 py-4 text-xl">
+                 <RefreshCw className="w-5 h-5 mr-2" /> Try Again
+               </Button>
             </div>
-            <h3 className="text-2xl font-black text-slate-800 mb-2">Oops! Dino tripped!</h3>
-            <p className="text-slate-500 mb-6 text-lg">We couldn't reach the magic cloud.</p>
-            <Button onClick={retryLastAction} className="w-full bg-red-400 hover:bg-red-500 py-4 text-xl">
-              <RefreshCw className="w-5 h-5 mr-2" /> Try Again
-            </Button>
-          </div>
-        </div>
-      )}
+         </div>
+       )}
 
       {/* 背景动画元素 */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div 
-            key={i}
-            className="absolute text-2xl md:text-4xl opacity-20 animate-float"
-            style={{
-              top: `${Math.random() * 100}%`,
-              left: `${Math.random() * 100}%`,
-              animationDelay: `${i * 2}s`,
-              animationDuration: `${10 + Math.random() * 10}s`
-            }}
-          >
-            {floatingEmoji}
-          </div>
-        ))}
-      </div>
+       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div 
+              key={i}
+              className="absolute text-2xl md:text-4xl opacity-20 animate-float"
+              style={{
+                top: `${Math.random() * 100}%`,
+                left: `${Math.random() * 100}%`,
+                animationDelay: `${i * 2}s`,
+                animationDuration: `${10 + Math.random() * 10}s`
+              }}
+            >
+              {floatingEmoji}
+            </div>
+          ))}
+       </div>
 
       <div className="w-full max-w-5xl mx-auto flex flex-col h-screen p-3 sm:p-4 md:p-6 lg:p-8 relative z-10">
         
@@ -577,8 +577,8 @@ const App: React.FC = () => {
                 pages={getCompletedPages()}
                 className="h-full"
               />
-            </div>
-          )}
+               </div>
+             )}
           
           {/* 右侧：当前创作区域 */}
           <div className={`flex-1 flex flex-col ${getCompletedPages().length > 0 ? 'md:max-w-xl' : ''}`}>
@@ -607,12 +607,12 @@ const App: React.FC = () => {
               aiComment={gameState.ui.isGeneratingImage ? "Painting a picture for you! 🎨" : gameState.ai.comment}
               isDinoSpeaking={isDinoSpeaking}
               onPlayComment={handlePlayDinoComment}
-            />
+                />
           </div>
         </div>
 
-      </div>
-
+          </div>
+          
       {/* 图片预览弹窗 */}
       {imagePreview && (
         <div 
@@ -631,9 +631,9 @@ const App: React.FC = () => {
             >
               ✕
             </button>
-          </div>
-        </div>
-      )}
+             </div>
+              </div>
+           )}
     </div>
   );
 };
