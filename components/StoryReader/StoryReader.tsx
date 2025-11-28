@@ -9,6 +9,8 @@ import { useSwipeable } from 'react-swipeable';
 import { PageView } from './PageView';
 import { Story } from '../../types';
 import { createSpeechService } from '../../services/speech';
+import { PageHeader } from '../shared/PageHeader';
+import { PageContainer } from '../shared/PageContainer';
 
 interface StoryReaderProps {
   story: Story;
@@ -28,7 +30,7 @@ export const StoryReader: React.FC<StoryReaderProps> = ({ story, onClose, onCont
   
   const currentPage = story.pages[currentPageIndex] || null;
   const totalPages = story.pages.length;
-  
+
   // 翻页逻辑
   const nextPage = () => {
     if (currentPageIndex < totalPages - 1) {
@@ -38,7 +40,7 @@ export const StoryReader: React.FC<StoryReaderProps> = ({ story, onClose, onCont
       speechService.cancel();
     }
   };
-  
+
   const prevPage = () => {
     if (currentPageIndex > 0) {
       setDirection(-1);
@@ -68,7 +70,7 @@ export const StoryReader: React.FC<StoryReaderProps> = ({ story, onClose, onCont
       nextPage(); // 右侧 25% - 下一页
     }
   };
-  
+
   // 滑动手势
   const swipeHandlers = useSwipeable({
     onSwipedLeft: nextPage,
@@ -87,7 +89,7 @@ export const StoryReader: React.FC<StoryReaderProps> = ({ story, onClose, onCont
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentPageIndex]);
-  
+
   // 页面切换动画
   const pageVariants = {
     enter: (direction: number) => ({
@@ -103,42 +105,32 @@ export const StoryReader: React.FC<StoryReaderProps> = ({ story, onClose, onCont
       opacity: 0
     })
   };
-  
+
   return (
-    <div 
-      className="fixed inset-0 bg-gradient-to-b from-amber-50 to-orange-50 z-50 flex flex-col"
-      {...swipeHandlers}
-    >
-      {/* Header - 简洁设计 */}
-      <header className="h-14 md:h-16 flex items-center justify-between px-4 md:px-6 bg-white/90 backdrop-blur-sm shadow-sm">
-        <button 
-          onClick={onClose}
-          className="text-lg md:text-xl hover:scale-110 transition-transform active:scale-95 font-medium text-slate-700"
-        >
-          ← Back
-        </button>
-        
-        <h2 className="font-black text-slate-800 text-base md:text-xl truncate max-w-xs md:max-w-md">
-          {story.title}
-        </h2>
-        
-        <div className="flex items-center gap-2 md:gap-3">
-          {/* 继续创作按钮 */}
-          {onContinueEdit && (
-            <button 
-              onClick={() => onContinueEdit(story)}
-              className="px-2 md:px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs md:text-sm font-bold rounded-full hover:scale-105 active:scale-95 transition-transform shadow-md"
-            >
-              ✍️ 继续
-            </button>
-          )}
-          
-          {/* 页码 */}
-          <span className="text-xs md:text-sm text-slate-500 font-medium min-w-[3rem] text-right">
-            {currentPageIndex + 1}/{totalPages}
-          </span>
-        </div>
-      </header>
+    <PageContainer className="fixed inset-0 z-50 flex flex-col" {...swipeHandlers}>
+      {/* Header */}
+      <PageHeader 
+        title={story.title}
+        onBack={onClose}
+        rightContent={
+          <>
+            {/* 继续创作按钮 */}
+            {onContinueEdit && (
+              <button 
+                onClick={() => onContinueEdit(story)}
+                className="px-2 md:px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs md:text-sm font-bold rounded-full hover:scale-105 active:scale-95 transition-transform shadow-md"
+              >
+                ✍️ Continue
+              </button>
+            )}
+            
+            {/* 页码 */}
+            <span className="text-xs md:text-sm text-slate-500 font-medium min-w-[3rem] text-right">
+              {currentPageIndex + 1}/{totalPages}
+            </span>
+          </>
+        }
+      />
 
       {/* 书本内容 - 点击边缘翻页 */}
       <div 
@@ -168,6 +160,6 @@ export const StoryReader: React.FC<StoryReaderProps> = ({ story, onClose, onCont
           </motion.div>
         </AnimatePresence>
       </div>
-    </div>
+    </PageContainer>
   );
 };

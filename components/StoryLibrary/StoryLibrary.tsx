@@ -10,6 +10,8 @@ import { useListDataSource } from '../../hooks/useBookDataSource';
 import { storiesSortedByTimeDataSource } from '../../data/storyDataSource';
 import { useStoryStore } from '../../stores/storyStore';
 import type { Story } from '../../types';
+import { PageHeader } from '../shared/PageHeader';
+import { PageContainer } from '../shared/PageContainer';
 
 interface StoryLibraryProps {
   onBack: () => void;
@@ -39,24 +41,20 @@ export const StoryLibrary: React.FC<StoryLibraryProps> = ({
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-orange-50 p-4 md:p-6">
-      
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <header className="mb-6 md:mb-8 flex items-center justify-between">
-          <button 
-            onClick={onBack}
-            className="text-2xl md:text-3xl hover:scale-110 transition-transform"
-          >
-            ←
-          </button>
-          <h1 className="text-3xl md:text-4xl font-black text-slate-800 flex items-center gap-2">
-            📚 My Story Library
-          </h1>
-          <div className="text-sm md:text-base text-slate-500 bg-white px-3 py-1 rounded-full">
+    <PageContainer className="flex flex-col">
+      {/* Header */}
+      <PageHeader 
+        title="📚 My Story Library"
+        onBack={onBack}
+        rightContent={
+          <div className="text-xs md:text-sm text-slate-500 bg-white/80 px-3 py-1 rounded-full font-medium">
             {stories.length} {stories.length === 1 ? 'story' : 'stories'}
           </div>
-        </header>
+        }
+      />
+      
+      <div className="flex-1 p-4 md:p-6">
+        <div className="max-w-7xl mx-auto">
 
         {/* 书架内容 */}
         {stories.length > 0 ? (
@@ -93,7 +91,8 @@ export const StoryLibrary: React.FC<StoryLibraryProps> = ({
             </Button>
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </PageContainer>
   );
 };
