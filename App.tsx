@@ -14,6 +14,7 @@ import { useStoryStore } from './stores/storyStore';
 import { useUsageStore } from './stores/usageStore';
 import { useChunkStore } from './stores/chunkStore';
 import { generateStoryCover } from './data/storyCover';
+import { useInteractionStateMachine } from './hooks/useInteractionStateMachine';
 
 // Theme configurations for different scenes
 const SCENE_THEMES: Record<string, string> = {
