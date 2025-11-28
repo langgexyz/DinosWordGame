@@ -3,9 +3,10 @@
 // ============================================
 
 export interface WordOption {
-  word: string;        // Can be a single word OR a natural phrase (e.g., "a few", "ran quickly")
+  word: string;           // Can be a single word OR a natural phrase (e.g., "a few", "ran quickly")
   emoji: string;
-  explanation: string; // Simple English explanation for young learners
+  explanation: string;    // Simple English explanation for young learners
+  willComplete: boolean;  // Will choosing this option complete the sentence?
   color?: string;
 }
 

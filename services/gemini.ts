@@ -27,33 +27,28 @@ You are Dino 🦖, helping 4-year-olds practice SPOKEN English through interacti
    - Connect to the story moment
    - Engage the child's imagination
    
-2. nextOptions: Provide 2 NATURAL LANGUAGE CHUNKS (not just single words!)
+2. nextOptions: Provide 2 NATURAL LANGUAGE CHUNKS
    
    **Chunk Philosophy:**
    - Think: "How would a native speaker SAY this?"
-   - Provide natural phrases children will speak out loud
+   - Provide natural spoken phrases
    
-   **When to use phrases (PREFER THIS):**
-   - Articles + Adjectives: "the little", "a big", "some tiny"
-   - Verb + Adverb: "ran quickly", "walked slowly", "jumped high"
-   - Verb + Preposition: "looked at", "ran to", "went into"
-   - Common collocations: "a few", "woke up", "came back", "went away"
-   - Preposition phrases: "in the morning", "at school", "to the park"
+   **Phrase guidelines:**
+   - Prefer natural combinations: "the little", "ran quickly", "looked at"
+   - Use single words when they stand alone naturally
    
-   **When single words are OK:**
-   - Subject nouns: "bear", "dragon", "girl"
-   - Action verbs standing alone: "jumped", "smiled", "laughed"
-   - Standalone adjectives: "happy", "sleepy", "brave"
-   
-   **Each option needs:**
-   - word: the phrase/chunk (e.g., "a few", "ran quickly", "the little bear")
+   **CRITICAL - Each option MUST specify:**
+   - word: the phrase/chunk to add
    - emoji: visual hint
-   - explanation: simple definition (what does this phrase mean?)
+   - explanation: what does this mean?
+   - willComplete: Will this choice make a complete sentence?
+     * Think: After adding this word/phrase, does it express a full thought?
+     * true = "The bear jumped" (complete thought)
+     * false = "The bear lived in" (needs more - where?)
 
-3. isComplete: Mark sentence complete ONLY when:
-   - Expresses a complete thought (subject + verb + object/complement)
-   - Ends with a meaningful word (noun/verb/adjective)
-   - NOT ending with: prepositions (in/on/at/to), articles (the/a), conjunctions (and/or)
+3. isComplete: Derived from the options
+   - If ANY option has willComplete=true, then isComplete=true
+   - Otherwise, isComplete=false
 
 4. Scene: Update when location changes
 
@@ -319,8 +314,9 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
                 word: { type: Type.STRING },
                 emoji: { type: Type.STRING },
                 explanation: { type: Type.STRING },
+                willComplete: { type: Type.BOOLEAN },
               },
-              required: ["word", "emoji", "explanation"]
+              required: ["word", "emoji", "explanation", "willComplete"]
             }
           },
           isComplete: { type: Type.BOOLEAN },
@@ -345,20 +341,8 @@ export const fetchGameStep = async (currentWords: WordOption[], history: StoryPa
   console.log('Translation:', data.englishTranslation || 'N/A');
   console.log('====================================\n');
 
-  // Fallback guard: Ensure isComplete is false if sentence ends with forbidden words
-  let finalIsComplete = data.isComplete;
-  
-  if (currentWords.length > 0) {
-    const lastPhrase = currentWords[currentWords.length - 1].word.toLowerCase();
-    // Get the actual last word from the phrase (e.g., "lived in" → "in")
-    const actualLastWord = lastPhrase.trim().split(/\s+/).pop() || "";
-    
-    const forbiddenEndings = ['and', 'or', 'but', 'with', 'the', 'a', 'an', 'my', 'his', 'her', 'their', 'of', 'to', 'in', 'on', 'at'];
-    
-    if (forbiddenEndings.includes(actualLastWord)) {
-      finalIsComplete = false;
-    }
-  }
+  // Derive isComplete from options: if ANY option can complete the sentence, mark as complete
+  const finalIsComplete = data.nextOptions?.some((opt: WordOption) => opt.willComplete) || false;
   
   return {
     aiComment: data.aiComment,
