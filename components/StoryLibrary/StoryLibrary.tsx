@@ -10,8 +10,8 @@ import { useListDataSource } from '../../hooks/useBookDataSource';
 import { storiesSortedByTimeDataSource } from '../../data/storyDataSource';
 import { useStoryStore } from '../../stores/storyStore';
 import type { Story } from '../../types';
-import { PageHeader } from '../shared/PageHeader';
-import { PageContainer } from '../shared/PageContainer';
+import { PageHeader } from '../layout/PageHeader';
+import { PageContainer } from '../layout/PageContainer';
 
 interface StoryLibraryProps {
   onBack: () => void;

@@ -9,8 +9,8 @@ import { useSwipeable } from 'react-swipeable';
 import { PageView } from './PageView';
 import { Story } from '../../types';
 import { createSpeechService } from '../../services/speech';
-import { PageHeader } from '../shared/PageHeader';
-import { PageContainer } from '../shared/PageContainer';
+import { PageHeader } from '../layout/PageHeader';
+import { PageContainer } from '../layout/PageContainer';
 
 interface StoryReaderProps {
   story: Story;
