@@ -3,9 +3,9 @@
 // ============================================
 
 export interface WordOption {
-  word: string;
+  word: string;        // Can be a single word OR a natural phrase (e.g., "a few", "ran quickly")
   emoji: string;
-  explanation: string; // Simple English explanation (3-5 words)
+  explanation: string; // Simple English explanation for young learners
   color?: string;
 }
 
